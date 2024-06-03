@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <script src="https://unpkg.com/htmx.org@1.9.12"></script>
+    <title>Document</title>
+  </head>
+  <body>
+    <h1>Twitch 2 Podcast</h1>
+    <p>{{ . }}</p>
+    <form hx-post="/channel/" hx-target="#channel-result" hx-indicator="#cargando">
+      <label for="channel">Channel Name: </label>
+      <input type="text" name="channel" id="channel" required />
+      <button type="submit" value="send">
+        Enviar
+      </button>
+      <h2 class="htmx-indicator" id="cargando">Cargando...</h2>
+    </form>
+    <section id="channel-result"></section>
+  </body>
+</html>
