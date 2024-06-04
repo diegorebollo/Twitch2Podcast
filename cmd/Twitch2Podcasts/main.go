@@ -3,12 +3,11 @@ package main
 import (
 	"drebollo/twitchtopodcast/internal/dbmanager"
 	"drebollo/twitchtopodcast/internal/models"
-	"drebollo/twitchtopodcast/internal/rss"
 	"fmt"
-	"html/template"
 	"log"
 	"net/http"
 	"strings"
+	"text/template"
 )
 
 func main() {
@@ -52,15 +51,19 @@ func main() {
 		var channelId *int
 
 		if len(channel) > 1 && len(channel) <= 25 {
-			channelId = dbmanager.ChannelId(channel, dbmanager.ConnectDb())
+			channelId = dbmanager.GetChannelId(channel, dbmanager.ConnectDb())
 
 			if channelId == nil {
 				http.Redirect(w, req, "/", http.StatusMovedPermanently)
-			} else {
-				// Cambiar por dbmanager.getRSS
-				rss := rss.Generator(channelId)
-				w.Write([]byte(rss))
+				return
 			}
+			rss := dbmanager.GetRss(channelId, dbmanager.ConnectDb())
+
+			if rss == nil {
+				http.Redirect(w, req, "/", http.StatusMovedPermanently)
+				return
+			}
+			w.Write([]byte(rss.Rss))
 		}
 	}
 
