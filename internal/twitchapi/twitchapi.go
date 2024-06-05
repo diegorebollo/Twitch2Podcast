@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"strings"
 )
@@ -71,9 +72,14 @@ func GetAllVodsFromChannel(channelId int) []models.ApiEdges {
 	return vodsResp.Data.User.Videos.Edges
 }
 
-func GetAudioUrl(vodId int) string {
-
+func GetAudioUrl(vodId int) *string {
 	playlist := string(getPlayList(vodId))
+
+	if !strings.Contains(playlist, "#EXTM3U") {
+		log.Printf("Vod:'%d' Private M3U List", vodId)
+		return nil
+	}
+
 	scanner := bufio.NewScanner(strings.NewReader(playlist))
 	var url string
 	for scanner.Scan() {
@@ -81,12 +87,17 @@ func GetAudioUrl(vodId int) string {
 			url = scanner.Text()
 		}
 	}
-
-	return url
+	return &url
 }
 
 func getPlayList(vodId int) []uint8 {
 	accessToken := getAccessToken(vodId)
+
+	if accessToken == nil {
+		log.Printf("Vod:'%d' NOT exist", vodId)
+		return nil
+	}
+
 	url := fmt.Sprintf(`https://usher.ttvnw.net/vod/%d.m3u8?client_id=%s&token=%s&sig=%s&allow_source=true&allow_audio_only=true`, vodId, clientId, accessToken.Value, accessToken.Signature)
 
 	resp, err := http.Get(url)

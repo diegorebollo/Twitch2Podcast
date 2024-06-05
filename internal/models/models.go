@@ -1,6 +1,8 @@
 package models
 
-import "time"
+import (
+	"time"
+)
 
 type Search struct {
 	Channel *Channel
@@ -10,14 +12,14 @@ type Channel struct {
 	Id          int
 	Login       string
 	DisplayName string
-	Description *string
+	Description string
 	CreatedAt   string
 	LastSearch  string
 }
 
 type Video struct {
-	ChannelId           int
 	ID                  int
+	ChannelId           int
 	Title               string
 	Description         string
 	Language            string
@@ -26,6 +28,20 @@ type Video struct {
 	BroadcastType       string
 	AudioURL            string
 	PreviewThumbnailURL string
+	IsPublic            bool
+}
+
+type Rss struct {
+	ChannelId  int
+	Rss        string
+	LastUpdate string
+	LastSearch string
+}
+
+type Episode struct {
+	ChannelId int
+	VideoId   int
+	Data      string
 }
 
 type ApiVideos struct {
