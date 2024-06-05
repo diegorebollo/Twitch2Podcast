@@ -57,13 +57,17 @@ func main() {
 				http.Redirect(w, req, "/", http.StatusMovedPermanently)
 				return
 			}
-			rss := dbmanager.GetRss(channelId, dbmanager.ConnectDb())
 
-			if rss == nil {
-				http.Redirect(w, req, "/", http.StatusMovedPermanently)
-				return
-			}
-			w.Write([]byte(rss.Rss))
+			// rss := dbmanager.GetRss(channelId, dbmanager.ConnectDb())
+
+			dbmanager.InsertRss(*channelId)
+
+			// if rss == nil {
+			// 	http.Redirect(w, req, "/", http.StatusMovedPermanently)
+			// 	return
+			// }
+			// fmt.Println(rss)
+			// w.Write(rss.Rss.Bytes())
 		}
 	}
 
