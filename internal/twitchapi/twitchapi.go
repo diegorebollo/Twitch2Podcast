@@ -43,7 +43,7 @@ func makeRequest(bodyContent string) []uint8 {
 
 func ChannelData(channel string) models.ApiData {
 
-	bodyContent := fmt.Sprintf(`{"query": "{ user(login: \"%s\") { id login displayName description createdAt }}"}`, channel)
+	bodyContent := fmt.Sprintf(`{"query": "{ user(login: \"%s\") { id login displayName description createdAt profileImageURL(width: 300) }}"}`, channel)
 	resp := makeRequest(bodyContent)
 
 	var userResp models.ApiResponse

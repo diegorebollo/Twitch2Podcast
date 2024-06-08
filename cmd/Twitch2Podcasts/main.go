@@ -16,6 +16,15 @@ func main() {
 	dbmanager.InitDb(dbmanager.ConnectDb())
 
 	indexHandler := func(w http.ResponseWriter, req *http.Request) {
+
+		dbmanager.SearchChannel("ibai", dbmanager.ConnectDb())
+		dbmanager.SearchChannel("alexelcapo", dbmanager.ConnectDb())
+		dbmanager.SearchChannel("elxokas", dbmanager.ConnectDb())
+		dbmanager.SearchChannel("chiclanafriends", dbmanager.ConnectDb())
+		dbmanager.SearchChannel("baitybait", dbmanager.ConnectDb())
+		dbmanager.SearchChannel("el_yuste", dbmanager.ConnectDb())
+		dbmanager.SearchChannel("rubius", dbmanager.ConnectDb())
+
 		tmpl := template.Must(template.ParseFiles("templates/index.html"))
 		tmpl.Execute(w, nil)
 	}
@@ -58,16 +67,12 @@ func main() {
 				return
 			}
 
-			// rss := dbmanager.GetRss(channelId, dbmanager.ConnectDb())
-
-			dbmanager.InsertRss(*channelId)
-
-			// if rss == nil {
-			// 	http.Redirect(w, req, "/", http.StatusMovedPermanently)
-			// 	return
-			// }
-			// fmt.Println(rss)
-			// w.Write(rss.Rss.Bytes())
+			rss := dbmanager.GetRss(channelId, dbmanager.ConnectDb())
+			if rss == nil {
+				http.Redirect(w, req, "/", http.StatusMovedPermanently)
+				return
+			}
+			w.Write([]byte(rss.Rss))
 		}
 	}
 

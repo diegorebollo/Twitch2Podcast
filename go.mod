@@ -1,6 +1,6 @@
 module drebollo/twitchtopodcast
 
-go 1.22.3
+go 1.22.4
 
 require (
 	github.com/eduncan911/podcast v1.4.2 // indirect

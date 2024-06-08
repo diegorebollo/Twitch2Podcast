@@ -9,12 +9,13 @@ type Search struct {
 }
 
 type Channel struct {
-	Id          int
-	Login       string
-	DisplayName string
-	Description string
-	CreatedAt   string
-	LastSearch  string
+	Id              int
+	Login           string
+	DisplayName     string
+	Description     string
+	CreatedAt       string
+	LastSearch      string
+	ProfileImageURL string
 }
 
 type Video struct {
@@ -26,7 +27,7 @@ type Video struct {
 	CreatedAt           string
 	LengthSeconds       int
 	BroadcastType       string
-	AudioURL            string
+	AudioURL            *string
 	PreviewThumbnailURL string
 	IsPublic            bool
 }
@@ -41,6 +42,7 @@ type Rss struct {
 type Episode struct {
 	ChannelId int
 	VideoId   int
+	Language  string
 	Data      string
 }
 
@@ -64,12 +66,13 @@ type ApiNode struct {
 }
 
 type ApiUser struct {
-	ID          string     `json:"id"`
-	Login       *string    `json:"login"`
-	DisplayName *string    `json:"displayName"`
-	Description *string    `json:"description"`
-	CreatedAt   *time.Time `json:"createdAt"`
-	Videos      *ApiVideos `json:"videos"`
+	ID              string     `json:"id"`
+	Login           *string    `json:"login"`
+	DisplayName     *string    `json:"displayName"`
+	Description     *string    `json:"description"`
+	CreatedAt       *time.Time `json:"createdAt"`
+	ProfileImageURL *string    `json:"profileImageURL"`
+	Videos          *ApiVideos `json:"videos"`
 }
 
 type ApiVideoPlaybackAccessToken struct {

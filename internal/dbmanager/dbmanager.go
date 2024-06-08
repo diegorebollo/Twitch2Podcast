@@ -12,11 +12,12 @@ import (
 	"strings"
 	"time"
 
+	"github.com/eduncan911/podcast"
 	_ "github.com/mattn/go-sqlite3"
 )
 
 func ConnectDb() *sql.DB {
-	db, err := sql.Open("sqlite3", "file:db.sqlite")
+	db, err := sql.Open("sqlite3", "file:db.sqlite?_journal_mode=WAL")
 
 	if err != nil {
 		log.Fatal(err)
@@ -36,7 +37,8 @@ func InitDb(db *sql.DB) {
 		displayName TEXT,
 		description TEXT,
 		createdAt TEXT,
-		lastSearch TEXT
+		lastSearch TEXT,
+		profileImageURL TEXT
 	)`
 	_, err := db.Exec(query)
 
@@ -80,7 +82,8 @@ func InitDb(db *sql.DB) {
 
 	query = `CREATE TABLE IF NOT EXISTS episode (
 		channelId INTEGER,	
-		videoId INTEGER,
+		videoId INTEGER PRIMARY KEY,
+		language  TEXT,
 		data BLOB,
 		FOREIGN KEY(channelId) REFERENCES channel(id)
 	)`
@@ -90,14 +93,12 @@ func InitDb(db *sql.DB) {
 		log.Fatal(err)
 	}
 
-	defer db.Close()
-
 }
 
 func SearchChannel(loginChannel string, db *sql.DB) models.Search {
 
 	var channel models.Channel
-	err := db.QueryRow("SELECT * FROM channel WHERE login = $1", loginChannel).Scan(&channel.Id, &channel.Login, &channel.DisplayName, &channel.Description, &channel.CreatedAt, &channel.LastSearch)
+	err := db.QueryRow("SELECT * FROM channel WHERE login = $1", loginChannel).Scan(&channel.Id, &channel.Login, &channel.DisplayName, &channel.Description, &channel.CreatedAt, &channel.LastSearch, &channel.ProfileImageURL)
 
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -122,10 +123,25 @@ func SearchChannel(loginChannel string, db *sql.DB) models.Search {
 		log.Fatal(err)
 	}
 
-	defer db.Close()
-
 	search := models.Search{Channel: &channel}
 	return search
+}
+
+func getChannel(channelId int, db *sql.DB) *models.Channel {
+
+	var channel models.Channel
+	err := db.QueryRow("SELECT * FROM channel WHERE id = $1", channelId).Scan(&channel.Id, &channel.Login, &channel.DisplayName, &channel.Description, &channel.CreatedAt, &channel.LastSearch, &channel.ProfileImageURL)
+
+	if err == sql.ErrNoRows {
+		log.Printf("Channel ID '%d' do NOT exist", channelId)
+		return nil
+	}
+
+	if err != nil {
+		log.Fatal(err)
+	}
+	return &channel
+
 }
 
 func insertChannel(user models.ApiUser, db *sql.DB) models.Channel {
@@ -136,26 +152,26 @@ func insertChannel(user models.ApiUser, db *sql.DB) models.Channel {
 	var channel models.Channel
 
 	var description string
-	if user.Description == nil {
+	if user.Description == nil || len(*user.Description) == 0 {
 		description = fmt.Sprintf("%s's Twitch Channel", *user.DisplayName)
 	} else {
 		description = *user.Description
 	}
 
-	query := `INSERT INTO channel (id, login, displayName, description, createdAt, lastSearch)
-				VALUES ($1, $2, $3, $4, $5, $6)	RETURNING *`
+	query := `INSERT INTO channel (id, login, displayName, description, createdAt, lastSearch, profileImageURL)
+				VALUES ($1, $2, $3, $4, $5, $6, $7)	RETURNING *`
 
-	err := db.QueryRow(query, user.ID, user.Login, user.DisplayName, description, createdAt, lastSearch).Scan(&channel.Id, &channel.Login, &channel.DisplayName, &channel.Description, &channel.CreatedAt, &channel.LastSearch)
+	err := db.QueryRow(query, user.ID, user.Login, user.DisplayName, description, createdAt, lastSearch, user.ProfileImageURL).Scan(&channel.Id, &channel.Login, &channel.DisplayName, &channel.Description, &channel.CreatedAt, &channel.LastSearch, &channel.ProfileImageURL)
 
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	defer db.Close()
-
+	go insertRss(channel.Id, ConnectDb())
 	go saveAllVods(channel.Id)
 
 	log.Printf("Channel '%s' CREATED in DB", *user.Login)
+
 	return channel
 }
 
@@ -171,8 +187,6 @@ func GetChannelId(loginChannel string, db *sql.DB) *int {
 	if err != nil {
 		log.Fatal(err)
 	}
-
-	defer db.Close()
 	return channelId
 }
 
@@ -201,9 +215,7 @@ func saveAllVods(channelId int) {
 			}
 		}
 	}
-	// go insertRss(channelId)
 	log.Printf("Total VODs saved from Channel ID '%d': %d ", channelId, numVodSave)
-
 }
 
 func insertVod(channelId int, vod models.ApiEdges, db *sql.DB) models.Video {
@@ -233,11 +245,13 @@ func insertVod(channelId int, vod models.ApiEdges, db *sql.DB) models.Video {
 
 	if err != nil {
 		log.Fatal(err)
+
 	}
 
-	defer db.Close()
+	if video.IsPublic {
+		insertEpisode(channelId, video, ConnectDb())
+	}
 
-	go insertEpisode(channelId, video, ConnectDb())
 	return video
 }
 
@@ -254,13 +268,12 @@ func vodExist(vodId int, db *sql.DB) bool {
 		log.Fatal(err)
 	}
 
-	defer db.Close()
-
 	return true
 }
 
 func GetRss(channelId *int, db *sql.DB) *models.Rss {
 	var rss models.Rss
+
 	err := db.QueryRow("SELECT * FROM rss WHERE channelId = $1", channelId).Scan(&rss.ChannelId, &rss.Rss, &rss.LastUpdate, &rss.LastSearch)
 
 	if err == sql.ErrNoRows {
@@ -271,26 +284,33 @@ func GetRss(channelId *int, db *sql.DB) *models.Rss {
 		log.Fatal(err)
 	}
 
-	defer db.Close()
-
 	return &rss
 
 }
 
-func InsertRss(channelId int) {
+func insertRss(channelId int, db *sql.DB) {
 
-	episodes := getAllEpisodes(channelId, ConnectDb())
+	channel := getChannel(channelId, ConnectDb())
+	rss := rss.Generator(*channel)
 
-	if len(episodes) == 0 {
-		log.Printf("ChannelId: '%d' has NOT any Episodes", channelId)
-		return
+	query := `INSERT INTO rss (channelId, rss, lastUpdate, lastSearch)
+	VALUES (?, ?, ?, ?)`
+
+	time := time.Now()
+
+	result, err := db.Exec(query, channelId, rss.String(), time, time)
+
+	if err != nil {
+		log.Fatal(err)
 	}
 
-	for i := 0; i < len(episodes); i++ {
-		fmt.Println(episodes[i].Data)
+	rows, err := result.RowsAffected()
+	if err != nil {
+		log.Fatal(err)
 	}
-
-	//  CONTINUAR AQUI... Parsea el json de epsiodes.data
+	if rows != 1 {
+		log.Fatalf("expected to affect 1 row, affected %d", rows)
+	}
 
 }
 
@@ -305,10 +325,10 @@ func insertEpisode(channelId int, vod models.Video, db *sql.DB) {
 		return
 	}
 
-	query := `INSERT INTO episode (channelId, videoId, data)
-	VALUES (?, ?, ?)`
+	query := `INSERT INTO episode (channelId, videoId, language, data)
+	VALUES (?, ?, ?, ?)`
 
-	result, err := db.Exec(query, channelId, vod.ID, string(jsonData))
+	result, err := db.Exec(query, channelId, vod.ID, vod.Language, string(jsonData))
 
 	if err != nil {
 		log.Fatal(err)
@@ -322,7 +342,49 @@ func insertEpisode(channelId int, vod models.Video, db *sql.DB) {
 		log.Fatalf("expected to affect 1 row, affected %d", rows)
 	}
 
-	defer db.Close()
+	updateRss(channelId, ConnectDb())
+}
+
+func updateRss(channelId int, db *sql.DB) {
+
+	channel := getChannel(channelId, ConnectDb())
+	rssData := rss.Generator(*channel)
+	episodes := getAllEpisodes(channelId, ConnectDb())
+
+	if len(episodes) == 0 {
+		log.Printf("ChannelId: '%d' has NOT any Episodes", channelId)
+		return
+	}
+
+	for i := len(episodes) - 1; i >= 0; i-- {
+		episodeData := episodes[i].Data
+		rssData.Language = episodes[i].Language
+
+		var episode podcast.Item
+
+		err := json.Unmarshal([]byte(episodeData), &episode)
+
+		if err != nil {
+			fmt.Println(err)
+		}
+
+		if _, err := rssData.AddItem(episode); err != nil {
+			fmt.Println(episode.Title, ": error", err.Error())
+			return
+		}
+	}
+
+	time := time.Now()
+
+	_, err := db.Exec(`UPDATE rss SET rss = $1, lastUpdate = $2, lastSearch = $3 WHERE channelId = $4`, rssData.String(), time, time, channel.Id)
+
+	if err == sql.ErrNoRows {
+		log.Fatal(err)
+	}
+
+	if err != nil {
+		log.Fatal(err)
+	}
 
 }
 
@@ -339,7 +401,7 @@ func getAllEpisodes(channelId int, db *sql.DB) []models.Episode {
 
 	for rows.Next() {
 		var episode models.Episode
-		err := rows.Scan(&episode.ChannelId, &episode.VideoId, &episode.Data)
+		err := rows.Scan(&episode.ChannelId, &episode.VideoId, &episode.Language, &episode.Data)
 
 		if err != nil {
 			log.Fatal(err)
