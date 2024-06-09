@@ -15,16 +15,9 @@ func main() {
 
 	dbmanager.InitDb(dbmanager.ConnectDb())
 
+	staticHandler := http.StripPrefix("/static/", http.FileServer(http.Dir("static/")))
+
 	indexHandler := func(w http.ResponseWriter, req *http.Request) {
-
-		dbmanager.SearchChannel("ibai", dbmanager.ConnectDb())
-		dbmanager.SearchChannel("alexelcapo", dbmanager.ConnectDb())
-		dbmanager.SearchChannel("elxokas", dbmanager.ConnectDb())
-		dbmanager.SearchChannel("chiclanafriends", dbmanager.ConnectDb())
-		dbmanager.SearchChannel("baitybait", dbmanager.ConnectDb())
-		dbmanager.SearchChannel("el_yuste", dbmanager.ConnectDb())
-		dbmanager.SearchChannel("rubius", dbmanager.ConnectDb())
-
 		tmpl := template.Must(template.ParseFiles("templates/index.html"))
 		tmpl.Execute(w, nil)
 	}
@@ -36,6 +29,17 @@ func main() {
 		}
 
 		channel := strings.ToLower(req.PostFormValue("channel"))
+
+		if strings.Contains(channel, "twitch.tv/") {
+			split := strings.Split(channel, "/")
+
+			channel = split[len(split)-1]
+
+			if len(channel) == 0 {
+				channel = split[len(split)-2]
+			}
+		}
+
 		var search models.Search
 
 		if len(channel) > 1 && len(channel) <= 25 {
@@ -44,6 +48,11 @@ func main() {
 
 		if search.Channel == nil {
 			htmlStr := fmt.Sprintf("<h2>'%s' Channel not exist </h2>", channel)
+
+			if len(channel) > 25 {
+				htmlStr = "<h2>Channel not Valid</h2>"
+			}
+
 			tmpl, _ := template.New("t").Parse(htmlStr)
 			tmpl.Execute(w, nil)
 		} else {
@@ -75,8 +84,8 @@ func main() {
 			w.Write([]byte(rss.Rss))
 		}
 	}
-
 	http.HandleFunc("/", indexHandler)
+	http.Handle("/static/", staticHandler)
 	http.HandleFunc("/channel/", userHandler)
 	http.HandleFunc("/feed/{channel}", feedHandler)
 

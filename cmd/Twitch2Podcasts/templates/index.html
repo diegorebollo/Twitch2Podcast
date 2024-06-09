@@ -3,20 +3,28 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <script src="https://unpkg.com/htmx.org@1.9.12"></script>
-    <title>Document</title>
+    <script src="/static/htmx.min.js"></script>
+    <link rel="stylesheet" href="/static/style.css">
+    <link rel="icon" type="image/x-icon" href="/static/favicon.ico">
+    <title>Twitch2Podcast - Turn a Twitch channel into a Podcast Feed</title>
+    <meta name="description" content="Easily turn any Twitch channel into a podcast feed. Transform all public VODs into an RSS podcast feed and use it in any podcast app">
   </head>
   <body>
-    <h1>Twitch 2 Podcast</h1>
-    <p>{{ . }}</p>
-    <form hx-post="/channel/" hx-target="#channel-result" hx-indicator="#cargando">
-      <label for="channel">Channel Name: </label>
-      <input type="text" name="channel" id="channel" required />
-      <button type="submit" value="send">
-        Enviar
-      </button>
-      <h2 class="htmx-indicator" id="cargando">Cargando...</h2>
-    </form>
-    <section id="channel-result"></section>
+    <main>
+      <h1>Twitch<span>2</span>Podcast</h1>
+      <p class="subtitle">Turn a Twitch channel into a Podcast Feed</p>
+      <div class="form">
+        <form hx-post="/channel/" hx-target="#channel-result" hx-indicator="#cargando">
+          <input type="text" class="input" name="channel" id="channel" autocomplete="off" minlength="1" maxlength="50" placeholder="Twitch Channel" required />
+          <button type="submit" class="submit" value="send">
+            Generate Feed
+          </button>
+          <h2 class="htmx-indicator" id="cargando">Cargando...</h2>
+        </form>
+      </div>
+      <section id="channel-result"></section>
+      <p class="msg">Twitch2Podcast is under development</p>
+
+    </main>
   </body>
 </html>

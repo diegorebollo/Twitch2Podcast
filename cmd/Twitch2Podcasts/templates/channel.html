@@ -1,4 +1,4 @@
 <p>User: {{ .Channel.Login }}</p>
+<img src="{{ .Channel.ProfileImageURL }}" alt="{{ .Channel.DisplayName }}`s profile picture">
 <p>Description: {{ .Channel.Description }}</p>
-<p>CreatedAt: {{ .Channel.CreatedAt }}</p>
-<a href="/feed/{{ .Channel.Login }}">RSS FEED</a>
+<a href="/feed/{{ .Channel.Login }}">twitch2podcast.com/feed/{{ .Channel.Login }}</a>
