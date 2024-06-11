@@ -47,10 +47,10 @@ func main() {
 		}
 
 		if search.Channel == nil {
-			htmlStr := fmt.Sprintf("<h2>'%s' Channel not exist </h2>", channel)
+			htmlStr := "<h3 class='channel-not-found'>Channel does not exist</h3>"
 
 			if len(channel) > 25 {
-				htmlStr = "<h2>Channel not Valid</h2>"
+				htmlStr = "<h3 class='channel-not-found'>Channel not valid</h3>"
 			}
 
 			tmpl, _ := template.New("t").Parse(htmlStr)

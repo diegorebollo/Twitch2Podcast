@@ -16,28 +16,49 @@
     unicode-range: U+0100-02AF, U+0300-0301, U+0303-0304, U+0308-0309, U+0323, U+0329, U+1E00-1EFF, U+2020, U+20A0-20AB, U+20AD-20CF, U+2113, U+2C60-2C7F, U+A720-A7FF;
 }
 
+:root {
+    color-scheme: dark;
+
+}
+
 * {
     box-sizing: border-box;
     position: relative;
     min-width: 0;
-    overflow: hidden;
+    /* overflow: hidden; */
 
 }
 
 body {
     min-height: 100dvh;
-    /* background-color: #1a1947; */
     font-family: 'ABeeZee', sans-serif;
     color: rgb(197, 207, 216);
-
     background-image: radial-gradient(#1b1b3d 1.5px, transparent 1.5px);
     background-size: 16px 16px;
     background-color: #100f2c;
-
     display: flex;
     justify-content: center;
     align-items: center;
 
+}
+
+a {
+    color: inherit;
+    text-decoration: none;
+
+}
+
+button {
+    font-family: inherit
+}
+
+input {
+    font-family: inherit
+}
+
+input::placeholder {
+    color: inherit;
+    opacity: 0.5;
 }
 
 h1,
@@ -57,9 +78,8 @@ main {
     align-items: center;
     justify-content: center;
     background-color: #22216471;
-    border-radius: 10px;
+    border-radius: 12px;
     width: 500px;
-
 
 }
 
@@ -86,8 +106,10 @@ h1 span {
 
 .form {
     display: flex;
-    align-items: center;
+    flex-direction: row;
 }
+
+/* https://uiverse.io/alexruix/evil-parrot-59 */
 
 .input {
     min-height: 50px;
@@ -96,8 +118,10 @@ h1 span {
     color: rgb(197, 207, 216);
     font-size: 15px;
     border: 1px solid #9771cf;
+    border-right: none;
     border-radius: 6px 0 0 6px;
     background-color: transparent;
+
 }
 
 .submit {
@@ -109,6 +133,7 @@ h1 span {
     color: rgb(235, 241, 247);
     font-size: 15px;
     cursor: pointer;
+    font-size: 1rem;
     transition: background-color .2s ease-in-out;
 }
 
@@ -120,4 +145,149 @@ h1 span {
 .input:focus-visible {
     border-color: #b48dee;
     outline: none;
+}
+
+.channel {
+    margin-top: 36px;
+    display: flex;
+    flex-direction: column;
+    background-color: #3432974d;
+    border-radius: 12px;
+    padding: 12px;
+    box-shadow: 2px 1px 15px -5px rgba(0, 0, 0, 0.41);
+    width: 360px;
+    gap: 8px;
+    text-align: center;
+
+}
+
+.horizontal-line {
+    background-color: #42408636;
+    height: 2px;
+    border-radius: 6px;
+
+
+}
+
+.copyBtn {
+    min-height: 50px;
+    padding: .5em 1em;
+    border: none;
+    border-radius: 6px 6px 6px 6px;
+    background-color: #9771cf;
+    color: rgb(235, 241, 247);
+    font-size: 1rem;
+    cursor: pointer;
+    transition: background-color .2s ease-in-out;
+}
+
+.copyBtn:hover {
+    background-color: #7656a7;
+}
+
+.user {
+    display: flex;
+    flex-direction: row;
+    width: 100%;
+    align-items: center;
+    gap: 12px;
+}
+
+.user img {
+    width: 100px;
+    height: 100px;
+    border-radius: 12%;
+}
+
+.user-description {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    align-items: center;
+}
+
+.user-description .name {
+    font-size: 1.2rem;
+    margin-top: 0;
+    margin-bottom: 12px;
+    overflow-wrap: break-word;
+    width: 100%;
+
+}
+
+.user-description .description {
+    font-size: 0.9rem;
+    text-align: center;
+    margin: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    line-clamp: 3;
+    -webkit-box-orient: vertical;
+}
+
+.links {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.links a {
+    margin-top: 8px;
+    color: #a19ef0;
+    transition: color .2s ease-in-out;
+    overflow-wrap: break-word;
+}
+
+.links a:hover {
+    color: #8784d6;
+}
+
+.channel-not-found {
+    margin-top: 36px;
+    margin-bottom: 0;
+}
+
+
+/* https://cssloaders.github.io/ */
+
+.loader {
+    width: 48px;
+    height: 48px;
+    border: 5px solid rgb(197, 207, 216);
+    border-bottom-color: transparent;
+    border-radius: 50%;
+    display: inline-block;
+    box-sizing: border-box;
+    animation: rotation 1s linear infinite;
+    margin-top: 36px;
+
+}
+
+@keyframes rotation {
+    0% {
+        transform: rotate(0deg);
+    }
+
+    100% {
+        transform: rotate(360deg);
+    }
+}
+
+
+.my-indicator {
+    display: none;
+    opacity: 0;
+    transition: opacity 500ms ease-in;
+}
+
+.htmx-request .my-indicator {
+    display: inline;
+    opacity: 1
+}
+
+.htmx-request.my-indicator {
+    display: inline;
+    opacity: 1
 }

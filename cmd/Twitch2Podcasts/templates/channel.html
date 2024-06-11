@@ -1,4 +1,30 @@
-<p>User: {{ .Channel.Login }}</p>
-<img src="{{ .Channel.ProfileImageURL }}" alt="{{ .Channel.DisplayName }}`s profile picture">
-<p>Description: {{ .Channel.Description }}</p>
-<a href="/feed/{{ .Channel.Login }}">twitch2podcast.com/feed/{{ .Channel.Login }}</a>
+<div class="channel">
+    <div class="user">
+        <img src="{{ .Channel.ProfileImageURL }}" alt="{{ .Channel.DisplayName }}`s profile picture">
+        <div class="user-description">
+            <p class="name">{{ .Channel.DisplayName }}</p>
+            <p class="description">{{ .Channel.Description }}</p>
+        </div>
+    </div>
+    <div class="horizontal-line"></div>
+    <div class="links">
+        <a href="/feed/{{ .Channel.Login }}" class="url">twitch2podcast.com/feed/{{ .Channel.Login }}</a>
+        <button type="button" class="copyBtn">Copy Link</button>
+    </div>
+
+</div>
+
+<script>
+    var button = document.querySelector(".copyBtn");
+    var url = document.querySelector(".url").textContent;
+
+    button.addEventListener("click", () => writeClipboardText(`https://www.${url}`));
+    async function writeClipboardText(text) {
+    try {
+        await navigator.clipboard.writeText(text);
+    } catch (error) {
+        console.error(error.message);
+    }
+    }
+</script>
+      
