@@ -2,8 +2,8 @@ package main
 
 import (
 	"drebollo/twitchtopodcast/internal/dbmanager"
+	"drebollo/twitchtopodcast/internal/jobs"
 	"drebollo/twitchtopodcast/internal/models"
-	"drebollo/twitchtopodcast/jobs"
 	"fmt"
 	"log"
 	"net/http"
