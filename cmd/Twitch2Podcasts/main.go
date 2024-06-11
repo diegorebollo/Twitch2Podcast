@@ -3,6 +3,7 @@ package main
 import (
 	"drebollo/twitchtopodcast/internal/dbmanager"
 	"drebollo/twitchtopodcast/internal/models"
+	"drebollo/twitchtopodcast/jobs"
 	"fmt"
 	"log"
 	"net/http"
@@ -14,6 +15,8 @@ func main() {
 	fmt.Println("App Running")
 
 	dbmanager.InitDb(dbmanager.ConnectDb())
+
+	go jobs.UpdateVods()
 
 	staticHandler := http.StripPrefix("/static/", http.FileServer(http.Dir("static/")))
 
@@ -84,6 +87,7 @@ func main() {
 			w.Write([]byte(rss.Rss))
 		}
 	}
+
 	http.HandleFunc("/", indexHandler)
 	http.Handle("/static/", staticHandler)
 	http.HandleFunc("/channel/", userHandler)
