@@ -11,7 +11,7 @@ func UpdateVods() {
 	log.Print("Update VODS Enable")
 
 	for {
-		time.Sleep(5 * time.Minute)
+		time.Sleep(1 * time.Minute)
 		log.Print("Updating Vods...")
 		channels := dbmanager.GetAllChannelIds(dbmanager.ConnectDb())
 

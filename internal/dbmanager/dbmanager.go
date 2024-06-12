@@ -234,16 +234,19 @@ func saveAllVods(channelId int) {
 		}
 
 		if !vodExist(vodId, ConnectDb()) {
-			if !strings.Contains(vod.Node.PreviewThumbnailURL, "404_processing") {
-				go insertVod(channelId, vod, ConnectDb())
-				numVodSave++
-			}
+			go insertVod(channelId, vod, ConnectDb())
+			numVodSave++
 		}
 	}
 	log.Printf("Total VODs saved from Channel ID '%d': %d ", channelId, numVodSave)
 }
 
-func insertVod(channelId int, vod models.ApiEdges, db *sql.DB) models.Video {
+func insertVod(channelId int, vod models.ApiEdges, db *sql.DB) *models.Video {
+
+	if strings.Contains(vod.Node.PreviewThumbnailURL, "404_processing") {
+		log.Printf("VOD '%s' is still a livestream", vod.Node.ID)
+		return nil
+	}
 
 	vodId, err := strconv.Atoi(vod.Node.ID)
 
@@ -277,7 +280,7 @@ func insertVod(channelId int, vod models.ApiEdges, db *sql.DB) models.Video {
 		insertEpisode(channelId, video, ConnectDb())
 	}
 
-	return video
+	return &video
 }
 
 func vodExist(vodId int, db *sql.DB) bool {
@@ -364,7 +367,7 @@ func getAllVodsId(channelId *int, db *sql.DB) []int {
 
 }
 
-func removeVod(vodId int, db *sql.DB) {
+func removeVod(channelId int, vodId int, db *sql.DB) {
 
 	query := `DELETE FROM vod WHERE	id = ?`
 
@@ -382,6 +385,8 @@ func removeVod(vodId int, db *sql.DB) {
 	if rows != 1 {
 		log.Fatalf("expected to affect 1 row, affected %d", rows)
 	}
+
+	removeEpisode(channelId, vodId, ConnectDb())
 
 }
 
@@ -467,6 +472,16 @@ func updateRss(channelId int, db *sql.DB) {
 
 	if len(episodes) == 0 {
 		log.Printf("ChannelId: '%d' has NOT any Episodes", channelId)
+
+		time := time.Now()
+		_, err := db.Exec(`UPDATE rss SET rss = $1, lastUpdate = $2, lastSearch = $3 WHERE channelId = $4`, rssData.String(), time, time, channel.Id)
+		if err == sql.ErrNoRows {
+			log.Fatal(err)
+		}
+		if err != nil {
+			log.Fatal(err)
+		}
+
 		return
 	}
 
@@ -502,6 +517,51 @@ func updateRss(channelId int, db *sql.DB) {
 
 }
 
+func removeEpisode(channelId int, vodId int, db *sql.DB) {
+
+	query := `DELETE FROM episode WHERE	videoId = ?`
+
+	result, err := db.Exec(query, vodId)
+
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	rows, err := result.RowsAffected()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	if rows != 1 {
+		log.Fatalf("expected to affect 1 row, affected %d", rows)
+	}
+
+	updateRss(channelId, ConnectDb())
+
+}
+
+func removeAllEpisodes(channelId int, db *sql.DB) {
+
+	query := `DELETE FROM episode WHERE channelId = ?`
+
+	result, err := db.Exec(query, channelId)
+
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	rows, err := result.RowsAffected()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	if rows != 1 {
+		log.Fatalf("expected to affect 1 row, affected %d", rows)
+	}
+
+	updateRss(channelId, ConnectDb())
+}
+
 func getAllEpisodes(channelId int, db *sql.DB) []models.Episode {
 
 	rows, err := db.Query("SELECT * FROM episode WHERE channelId = ?", channelId)
@@ -533,17 +593,11 @@ func UpdateAllVods(channelId int) {
 
 	var vodsApiId []int
 
+	// Check if Vod from Api is in DB
+
 	if len(vodsApi) == 0 {
 		log.Printf("Channel ID '%d' has NO VODs (API)", channelId)
-		return
 	}
-
-	if len(vodsDb) == 0 {
-		log.Printf("Channel ID '%d' has NO VODs (DB)", channelId)
-		return
-	}
-
-	// Check if Vod from Api is in DB
 
 	for i := len(vodsApi) - 1; i >= 0; i-- {
 		lastvodApi, err := strconv.Atoi(vodsApi[i].Node.ID)
@@ -564,8 +618,11 @@ func UpdateAllVods(channelId int) {
 		}
 
 		if !isOld {
-			insertVod(channelId, vodsApi[i], ConnectDb())
-			log.Printf("New VOD (%d) from Channel ID '%d' added", lastvodApi, channelId)
+			vod := insertVod(channelId, vodsApi[i], ConnectDb())
+
+			if vod != nil {
+				log.Printf("New VOD (%d) from Channel ID '%d' added", lastvodApi, channelId)
+			}
 		}
 	}
 
@@ -584,9 +641,8 @@ func UpdateAllVods(channelId int) {
 		}
 
 		if !stillOnTwitch {
-			removeVod(vodDb, ConnectDb())
+			removeVod(channelId, vodDb, ConnectDb())
 			log.Printf("VOD %d deleted", vodDb)
-
 		}
 	}
 
