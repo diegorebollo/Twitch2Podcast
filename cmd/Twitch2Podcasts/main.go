@@ -21,6 +21,7 @@ func main() {
 	staticHandler := http.StripPrefix("/static/", http.FileServer(http.Dir("static/")))
 
 	indexHandler := func(w http.ResponseWriter, req *http.Request) {
+		log.Print("index ", req.UserAgent())
 		tmpl := template.Must(template.ParseFiles("templates/index.html"))
 		tmpl.Execute(w, nil)
 	}
@@ -68,6 +69,8 @@ func main() {
 		w.Header().Set("Content-Type", "application/xml")
 
 		channel := req.PathValue("channel")
+
+		log.Printf("feed channel:%s %s", channel, req.UserAgent())
 
 		var channelId *int
 

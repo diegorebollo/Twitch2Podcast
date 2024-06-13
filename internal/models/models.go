@@ -4,6 +4,8 @@ import (
 	"time"
 )
 
+const DateLayout = "2006-01-02 15:04:05.999999 -0700"
+
 type Search struct {
 	Channel *Channel
 }
@@ -13,8 +15,8 @@ type Channel struct {
 	Login           string
 	DisplayName     string
 	Description     string
-	CreatedAt       string
-	LastSearch      string
+	CreatedAt       time.Time
+	LastSearch      time.Time
 	ProfileImageURL string
 }
 
@@ -24,7 +26,7 @@ type Video struct {
 	Title               string
 	Description         string
 	Language            string
-	CreatedAt           string
+	CreatedAt           time.Time
 	LengthSeconds       int
 	BroadcastType       string
 	AudioURL            *string
@@ -35,8 +37,8 @@ type Video struct {
 type Rss struct {
 	ChannelId  int
 	Rss        string
-	LastUpdate string
-	LastSearch string
+	LastUpdate time.Time
+	LastSearch time.Time
 }
 
 type Episode struct {
