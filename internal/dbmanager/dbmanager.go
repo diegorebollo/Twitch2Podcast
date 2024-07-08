@@ -10,6 +10,7 @@ import (
 	"log"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/eduncan911/podcast"
@@ -17,7 +18,7 @@ import (
 )
 
 func ConnectDb() *sql.DB {
-	db, err := sql.Open("sqlite3", "file:db.sqlite?_journal_mode=WAL")
+	db, err := sql.Open("sqlite3", "file:db.sqlite?_synchronous=1&_journal_mode=WAL&_busy_timeout=60000&_synchronous=normal")
 
 	if err != nil {
 		log.Fatal(err)
@@ -30,6 +31,8 @@ func ConnectDb() *sql.DB {
 }
 
 func InitDb(db *sql.DB) {
+
+	defer db.Close()
 
 	query := `CREATE TABLE IF NOT EXISTS channel (
 		id INTEGER PRIMARY KEY,
@@ -109,7 +112,7 @@ func SearchChannel(loginChannel string, db *sql.DB) models.Search {
 				search := models.Search{Channel: nil}
 				return search
 			}
-			channel = insertChannel(*apiLookup.User, ConnectDb())
+			channel = insertChannel(*apiLookup.User, db)
 			search := models.Search{Channel: &channel}
 			return search
 		}
@@ -192,8 +195,8 @@ func insertChannel(user models.ApiUser, db *sql.DB) models.Channel {
 		log.Fatal(err)
 	}
 
-	go insertRss(channel.Id, ConnectDb())
-	go saveAllVods(channel.Id)
+	go insertRss(channel.Id, db)
+	go saveAllVods(channel.Id, db)
 
 	log.Printf("Channel '%s' CREATED in DB", *user.Login)
 
@@ -215,33 +218,58 @@ func GetChannelId(loginChannel string, db *sql.DB) *int {
 	return channelId
 }
 
-func saveAllVods(channelId int) {
+func saveAllVods(channelId int, db *sql.DB) *[]models.Video {
 
 	numVodSave := 0
 	vods := twichapi.GetAllVodsFromChannel(channelId)
 
 	if len(vods) == 0 {
 		log.Printf("Channel ID '%d' has NO VODs", channelId)
-		return
 	}
+
+	ch := make(chan models.Video)
+	var wg sync.WaitGroup
 
 	for i := 0; i < len(vods); i++ {
+
+		wg.Add(1)
 		vod := vods[i]
-		vodId, err := strconv.Atoi(vod.Node.ID)
+		// vodId, err := strconv.Atoi(vod.Node.ID)
 
-		if err != nil {
-			log.Fatal(err)
-		}
+		// if err != nil {
+		// 	log.Fatal(err)
+		// }
 
-		if !vodExist(vodId, ConnectDb()) {
-			go insertVod(channelId, vod, ConnectDb())
-			numVodSave++
-		}
+		// if !vodExist(vodId, ConnectDb()) {
+		// 	go insertVod(channelId, vod, ConnectDb())
+		// 	numVodSave++
+		// }
+
+		go insertVod(channelId, vod, db, ch, &wg)
+		numVodSave++
 	}
-	log.Printf("Total VODs saved from Channel ID '%d': %d ", channelId, numVodSave)
+
+	go func() {
+		wg.Wait()
+		close(ch)
+		updateRss(channelId, db)
+		log.Printf("Total VODs saved from Channel ID '%d': %d ", channelId, numVodSave)
+	}()
+
+	var dbVods []models.Video
+
+	for vod := range ch {
+		dbVods = append(dbVods, vod)
+	}
+
+	return &dbVods
 }
 
-func insertVod(channelId int, vod models.ApiEdges, db *sql.DB) *models.Video {
+func insertVod(channelId int, vod models.ApiEdges, db *sql.DB, ch chan<- models.Video, wg *sync.WaitGroup) *models.Video {
+
+	// defer db.Close()
+
+	defer wg.Done()
 
 	if strings.Contains(vod.Node.PreviewThumbnailURL, "404_processing") {
 		log.Printf("VOD '%s' is still a livestream", vod.Node.ID)
@@ -277,8 +305,10 @@ func insertVod(channelId int, vod models.ApiEdges, db *sql.DB) *models.Video {
 	}
 
 	if video.IsPublic {
-		insertEpisode(channelId, video, ConnectDb())
+		insertEpisode(channelId, video, db)
 	}
+
+	ch <- video
 
 	return &video
 }
@@ -386,7 +416,7 @@ func removeVod(channelId int, vodId int, db *sql.DB) {
 		log.Fatalf("expected to affect 1 row, affected %d", rows)
 	}
 
-	removeEpisode(channelId, vodId, ConnectDb())
+	removeEpisode(channelId, vodId, db)
 
 }
 
@@ -409,7 +439,7 @@ func GetRss(channelId *int, db *sql.DB) *models.Rss {
 
 func insertRss(channelId int, db *sql.DB) {
 
-	channel := getChannel(channelId, ConnectDb())
+	channel := getChannel(channelId, db)
 	rss := rss.Generator(*channel)
 
 	query := `INSERT INTO rss (channelId, rss, lastUpdate, lastSearch)
@@ -461,14 +491,14 @@ func insertEpisode(channelId int, vod models.Video, db *sql.DB) {
 		log.Fatalf("expected to affect 1 row, affected %d", rows)
 	}
 
-	updateRss(channelId, ConnectDb())
+	updateRss(channelId, db)
 }
 
 func updateRss(channelId int, db *sql.DB) {
 
-	channel := getChannel(channelId, ConnectDb())
+	channel := getChannel(channelId, db)
 	rssData := rss.Generator(*channel)
-	episodes := getAllEpisodes(channelId, ConnectDb())
+	episodes := getAllEpisodes(channelId, db)
 
 	if len(episodes) == 0 {
 		log.Printf("ChannelId: '%d' has NOT any Episodes", channelId)
@@ -536,7 +566,7 @@ func removeEpisode(channelId int, vodId int, db *sql.DB) {
 		log.Fatalf("expected to affect 1 row, affected %d", rows)
 	}
 
-	updateRss(channelId, ConnectDb())
+	updateRss(channelId, db)
 
 }
 
@@ -559,7 +589,7 @@ func removeAllEpisodes(channelId int, db *sql.DB) {
 		log.Fatalf("expected to affect 1 row, affected %d", rows)
 	}
 
-	updateRss(channelId, ConnectDb())
+	updateRss(channelId, db)
 }
 
 func getAllEpisodes(channelId int, db *sql.DB) []models.Episode {
@@ -586,64 +616,64 @@ func getAllEpisodes(channelId int, db *sql.DB) []models.Episode {
 	return episodes
 }
 
-func UpdateAllVods(channelId int) {
+// func UpdateAllVods(channelId int) {
 
-	vodsApi := twichapi.GetAllVodsFromChannel(channelId)
-	vodsDb := getAllVodsId(&channelId, ConnectDb())
+// 	vodsApi := twichapi.GetAllVodsFromChannel(channelId)
+// 	vodsDb := getAllVodsId(&channelId, db)
 
-	var vodsApiId []int
+// 	var vodsApiId []int
 
-	// Check if Vod from Api is in DB
+// 	// Check if Vod from Api is in DB
 
-	if len(vodsApi) == 0 {
-		log.Printf("Channel ID '%d' has NO VODs (API)", channelId)
-	}
+// 	if len(vodsApi) == 0 {
+// 		log.Printf("Channel ID '%d' has NO VODs (API)", channelId)
+// 	}
 
-	for i := len(vodsApi) - 1; i >= 0; i-- {
-		lastvodApi, err := strconv.Atoi(vodsApi[i].Node.ID)
+// 	for i := len(vodsApi) - 1; i >= 0; i-- {
+// 		lastvodApi, err := strconv.Atoi(vodsApi[i].Node.ID)
 
-		vodsApiId = append(vodsApiId, lastvodApi)
+// 		vodsApiId = append(vodsApiId, lastvodApi)
 
-		if err != nil {
-			log.Fatal(err)
-		}
+// 		if err != nil {
+// 			log.Fatal(err)
+// 		}
 
-		isOld := false
+// 		isOld := false
 
-		for _, id := range vodsDb {
-			if id == lastvodApi {
-				isOld = true
-				break
-			}
-		}
+// 		for _, id := range vodsDb {
+// 			if id == lastvodApi {
+// 				isOld = true
+// 				break
+// 			}
+// 		}
 
-		if !isOld {
-			vod := insertVod(channelId, vodsApi[i], ConnectDb())
+// 		if !isOld {
+// 			vod := insertVod(channelId, vodsApi[i], db)
 
-			if vod != nil {
-				log.Printf("New VOD (%d) from Channel ID '%d' added", lastvodApi, channelId)
-			}
-		}
-	}
+// 			if vod != nil {
+// 				log.Printf("New VOD (%d) from Channel ID '%d' added", lastvodApi, channelId)
+// 			}
+// 		}
+// 	}
 
-	// Check if Vod from DB is in API
+// 	// Check if Vod from DB is in API
 
-	for i := len(vodsDb) - 1; i >= 0; i-- {
-		vodDb := vodsDb[i]
+// 	for i := len(vodsDb) - 1; i >= 0; i-- {
+// 		vodDb := vodsDb[i]
 
-		stillOnTwitch := false
+// 		stillOnTwitch := false
 
-		for _, id := range vodsApiId {
-			if id == vodDb {
-				stillOnTwitch = true
-				break
-			}
-		}
+// 		for _, id := range vodsApiId {
+// 			if id == vodDb {
+// 				stillOnTwitch = true
+// 				break
+// 			}
+// 		}
 
-		if !stillOnTwitch {
-			removeVod(channelId, vodDb, ConnectDb())
-			log.Printf("VOD %d deleted", vodDb)
-		}
-	}
+// 		if !stillOnTwitch {
+// 			removeVod(channelId, vodDb, db)
+// 			log.Printf("VOD %d deleted", vodDb)
+// 		}
+// 	}
 
-}
+// }
