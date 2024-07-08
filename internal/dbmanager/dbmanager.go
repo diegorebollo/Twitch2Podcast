@@ -18,7 +18,7 @@ import (
 )
 
 func ConnectDb() *sql.DB {
-	db, err := sql.Open("sqlite3", "file:db.sqlite?_synchronous=1&_journal_mode=WAL&_busy_timeout=60000&_synchronous=normal")
+	db, err := sql.Open("sqlite3", "file:db.sqlite?temp_store=memory&_journal_mode=WAL&_synchronous=normal&_mmap_size=30000000000&_busy_timeout=20000")
 
 	if err != nil {
 		log.Fatal(err)
@@ -495,6 +495,8 @@ func insertEpisode(channelId int, vod models.Video, db *sql.DB) {
 }
 
 func updateRss(channelId int, db *sql.DB) {
+
+	defer db.Close()
 
 	channel := getChannel(channelId, db)
 	rssData := rss.Generator(*channel)
