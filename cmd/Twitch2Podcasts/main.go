@@ -2,6 +2,7 @@ package main
 
 import (
 	"drebollo/twitchtopodcast/internal/dbmanager"
+	"drebollo/twitchtopodcast/internal/ffmpeg"
 	"drebollo/twitchtopodcast/internal/models"
 	"fmt"
 	"log"
@@ -45,6 +46,8 @@ func main() {
 	// go dbmanager.SearchChannel("rickyedit", dbTest)
 	// go dbmanager.SearchChannel("elrichmc", dbTest)
 	// go dbmanager.SearchChannel("kaicenat", dbTest)
+
+	ffmpeg.SaveMp3()
 
 	staticHandler := http.StripPrefix("/static/", http.FileServer(http.Dir("static/")))
 
