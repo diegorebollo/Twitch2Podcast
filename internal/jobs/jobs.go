@@ -1,23 +1,24 @@
 package jobs
 
 import (
+	"database/sql"
 	"drebollo/twitchtopodcast/internal/dbmanager"
 	"log"
 	"time"
 )
 
-func UpdateVods() {
+func UpdateVods(db *sql.DB) {
 
 	log.Print("Update VODS Enable")
 
 	for {
-		time.Sleep(5 * time.Minute)
+		time.Sleep(10 * time.Second)
 		log.Print("Updating Vods...")
-		channels := dbmanager.GetAllChannelIds(dbmanager.ConnectDb())
+		channels := dbmanager.GetAllChannelIds(db)
 
 		for i := 0; i < len(channels); i++ {
 			channel := channels[i]
-			dbmanager.UpdateAllVods(channel)
+			dbmanager.UpdateAllVods(channel, db)
 		}
 
 	}

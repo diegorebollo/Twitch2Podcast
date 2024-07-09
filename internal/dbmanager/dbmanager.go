@@ -218,7 +218,7 @@ func GetChannelId(loginChannel string, db *sql.DB) *int {
 	return channelId
 }
 
-func saveAllVods(channelId int, db *sql.DB) *[]models.Video {
+func saveAllVods(channelId int, db *sql.DB) {
 
 	numVodSave := 0
 	vods := twichapi.GetAllVodsFromChannel(channelId)
@@ -227,45 +227,23 @@ func saveAllVods(channelId int, db *sql.DB) *[]models.Video {
 		log.Printf("Channel ID '%d' has NO VODs", channelId)
 	}
 
-	ch := make(chan models.Video)
 	var wg sync.WaitGroup
 
-	for i := 0; i < len(vods); i++ {
-
+	for _, vod := range vods {
 		wg.Add(1)
-		vod := vods[i]
-		// vodId, err := strconv.Atoi(vod.Node.ID)
-
-		// if err != nil {
-		// 	log.Fatal(err)
-		// }
-
-		// if !vodExist(vodId, ConnectDb()) {
-		// 	go insertVod(channelId, vod, ConnectDb())
-		// 	numVodSave++
-		// }
-
-		go insertVod(channelId, vod, db, ch, &wg)
+		go insertVod(channelId, vod, db, &wg)
 		numVodSave++
+
 	}
 
 	go func() {
 		wg.Wait()
-		close(ch)
 		updateRss(channelId, db)
 		log.Printf("Total VODs saved from Channel ID '%d': %d ", channelId, numVodSave)
 	}()
-
-	var dbVods []models.Video
-
-	for vod := range ch {
-		dbVods = append(dbVods, vod)
-	}
-
-	return &dbVods
 }
 
-func insertVod(channelId int, vod models.ApiEdges, db *sql.DB, ch chan<- models.Video, wg *sync.WaitGroup) *models.Video {
+func insertVod(channelId int, vod models.ApiEdges, db *sql.DB, wg *sync.WaitGroup) *models.Video {
 
 	// defer db.Close()
 
@@ -307,8 +285,6 @@ func insertVod(channelId int, vod models.ApiEdges, db *sql.DB, ch chan<- models.
 	if video.IsPublic {
 		insertEpisode(channelId, video, db)
 	}
-
-	ch <- video
 
 	return &video
 }
@@ -490,13 +466,9 @@ func insertEpisode(channelId int, vod models.Video, db *sql.DB) {
 	if rows != 1 {
 		log.Fatalf("expected to affect 1 row, affected %d", rows)
 	}
-
-	updateRss(channelId, db)
 }
 
 func updateRss(channelId int, db *sql.DB) {
-
-	// defer db.Close()
 
 	channel := getChannel(channelId, db)
 	rssData := rss.Generator(*channel)
@@ -618,64 +590,82 @@ func getAllEpisodes(channelId int, db *sql.DB) []models.Episode {
 	return episodes
 }
 
-// func UpdateAllVods(channelId int) {
+func UpdateAllVods(channelId int, db *sql.DB) {
 
-// 	vodsApi := twichapi.GetAllVodsFromChannel(channelId)
-// 	vodsDb := getAllVodsId(&channelId, db)
+	needUpdate := false
 
-// 	var vodsApiId []int
+	vodsApi := twichapi.GetAllVodsFromChannel(channelId)
+	vodsDb := getAllVodsId(&channelId, db)
 
-// 	// Check if Vod from Api is in DB
+	if len(vodsApi) == 0 && len(vodsDb) == 0 {
+		return
+	}
 
-// 	if len(vodsApi) == 0 {
-// 		log.Printf("Channel ID '%d' has NO VODs (API)", channelId)
-// 	}
+	var vodsApiId []int
 
-// 	for i := len(vodsApi) - 1; i >= 0; i-- {
-// 		lastvodApi, err := strconv.Atoi(vodsApi[i].Node.ID)
+	var wg sync.WaitGroup
 
-// 		vodsApiId = append(vodsApiId, lastvodApi)
+	// Check if Vod from Api is in DB
 
-// 		if err != nil {
-// 			log.Fatal(err)
-// 		}
+	if len(vodsApi) == 0 {
+		log.Printf("Channel ID '%d' has NO VODs (API)", channelId)
+	}
 
-// 		isOld := false
+	for i := len(vodsApi) - 1; i >= 0; i-- {
+		lastvodApi, err := strconv.Atoi(vodsApi[i].Node.ID)
+		vodsApiId = append(vodsApiId, lastvodApi)
 
-// 		for _, id := range vodsDb {
-// 			if id == lastvodApi {
-// 				isOld = true
-// 				break
-// 			}
-// 		}
+		if err != nil {
+			log.Fatal(err)
+		}
 
-// 		if !isOld {
-// 			vod := insertVod(channelId, vodsApi[i], db)
+		isNew := true
 
-// 			if vod != nil {
-// 				log.Printf("New VOD (%d) from Channel ID '%d' added", lastvodApi, channelId)
-// 			}
-// 		}
-// 	}
+		for _, id := range vodsDb {
+			if id == lastvodApi {
+				isNew = false
+				break
+			}
+		}
 
-// 	// Check if Vod from DB is in API
+		wg.Add(1)
 
-// 	for i := len(vodsDb) - 1; i >= 0; i-- {
-// 		vodDb := vodsDb[i]
+		if isNew {
+			needUpdate = true
+			vod := insertVod(channelId, vodsApi[i], db, &wg)
+			if vod != nil {
+				log.Printf("New VOD (%d) from Channel ID '%d' added", lastvodApi, channelId)
+			}
+		}
 
-// 		stillOnTwitch := false
+		go func() {
+			wg.Wait()
+		}()
+	}
 
-// 		for _, id := range vodsApiId {
-// 			if id == vodDb {
-// 				stillOnTwitch = true
-// 				break
-// 			}
-// 		}
+	// Check if Vod from DB is in API
 
-// 		if !stillOnTwitch {
-// 			removeVod(channelId, vodDb, db)
-// 			log.Printf("VOD %d deleted", vodDb)
-// 		}
-// 	}
+	for i := len(vodsDb) - 1; i >= 0; i-- {
 
-// }
+		vodDb := vodsDb[i]
+
+		stillOnTwitch := false
+
+		for _, id := range vodsApiId {
+			if id == vodDb {
+				stillOnTwitch = true
+				break
+			}
+		}
+
+		if !stillOnTwitch {
+			needUpdate = true
+			removeVod(channelId, vodDb, db)
+			log.Printf("VOD %d deleted", vodDb)
+		}
+	}
+
+	if needUpdate {
+		updateRss(channelId, db)
+	}
+}
