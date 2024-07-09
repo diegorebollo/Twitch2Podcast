@@ -15,7 +15,36 @@ func main() {
 
 	dbmanager.InitDb(dbmanager.ConnectDb())
 
-	// go jobs.UpdateVods()
+	dbCon := dbmanager.ConnectDb()
+
+	// go jobs.UpdateVods(dbCon)
+
+	// go dbmanager.SearchChannel("chiclanafriends", dbTest)
+	// go dbmanager.SearchChannel("pokimane", dbTest)
+	// go dbmanager.SearchChannel("ibai", dbTest)
+	// go dbmanager.SearchChannel("illojuan", dbTest)
+	// go dbmanager.SearchChannel("orslok", dbTest)
+	// go dbmanager.SearchChannel("el_yuste", dbTest)
+	// go dbmanager.SearchChannel("elxokas", dbTest)
+	// go dbmanager.SearchChannel("ikurotime", dbTest)
+	// go dbmanager.SearchChannel("alexelcapo", dbTest)
+	// go dbmanager.SearchChannel("chicocartera", dbTest)
+	// go dbmanager.SearchChannel("jujalag", dbTest)
+	// go dbmanager.SearchChannel("knekro", dbTest)
+	// go dbmanager.SearchChannel("eurogamer_es", dbTest)
+	// go dbmanager.SearchChannel("viviendoenlacalle", dbTest)
+	// go dbmanager.SearchChannel("rubius", dbTest)
+	// go dbmanager.SearchChannel("auronplay", dbTest)
+	// go dbmanager.SearchChannel("littleragergirl", dbTest)
+	// go dbmanager.SearchChannel("anujbost", dbTest)
+	// go dbmanager.SearchChannel("5ro4", dbTest)
+	// go dbmanager.SearchChannel("japanwolf", dbTest)
+	// go dbmanager.SearchChannel("llunaclark", dbTest)
+	// go dbmanager.SearchChannel("pazos64", dbTest)
+	// go dbmanager.SearchChannel("pandarina", dbTest)
+	// go dbmanager.SearchChannel("rickyedit", dbTest)
+	// go dbmanager.SearchChannel("elrichmc", dbTest)
+	// go dbmanager.SearchChannel("kaicenat", dbTest)
 
 	staticHandler := http.StripPrefix("/static/", http.FileServer(http.Dir("static/")))
 
@@ -30,8 +59,6 @@ func main() {
 			http.Redirect(w, req, "/", http.StatusMovedPermanently)
 			return
 		}
-
-		db := dbmanager.ConnectDb()
 
 		channel := strings.ToLower(req.PostFormValue("channel"))
 
@@ -48,7 +75,7 @@ func main() {
 		var search models.Search
 
 		if len(channel) > 1 && len(channel) <= 25 {
-			search = dbmanager.SearchChannel(channel, db)
+			search = dbmanager.SearchChannel(channel, dbCon)
 		}
 
 		if search.Channel == nil {
@@ -76,14 +103,14 @@ func main() {
 		var channelId *int
 
 		if len(channel) > 1 && len(channel) <= 25 {
-			channelId = dbmanager.GetChannelId(channel, dbmanager.ConnectDb())
+			channelId = dbmanager.GetChannelId(channel, dbCon)
 
 			if channelId == nil {
 				http.Redirect(w, req, "/", http.StatusMovedPermanently)
 				return
 			}
 
-			rss := dbmanager.GetRss(channelId, dbmanager.ConnectDb())
+			rss := dbmanager.GetRss(channelId, dbCon)
 			if rss == nil {
 				http.Redirect(w, req, "/", http.StatusMovedPermanently)
 				return
