@@ -2,6 +2,7 @@ package dbmanager
 
 import (
 	"database/sql"
+	"drebollo/twitchtopodcast/internal/ffmpeg"
 	"drebollo/twitchtopodcast/internal/models"
 	"drebollo/twitchtopodcast/internal/rss"
 	twichapi "drebollo/twitchtopodcast/internal/twitchapi"
@@ -245,8 +246,6 @@ func saveAllVods(channelId int, db *sql.DB) {
 
 func insertVod(channelId int, vod models.ApiEdges, db *sql.DB, wg *sync.WaitGroup) *models.Video {
 
-	// defer db.Close()
-
 	defer wg.Done()
 
 	if strings.Contains(vod.Node.PreviewThumbnailURL, "404_processing") {
@@ -284,6 +283,7 @@ func insertVod(channelId int, vod models.ApiEdges, db *sql.DB, wg *sync.WaitGrou
 
 	if video.IsPublic {
 		insertEpisode(channelId, video, db)
+		ffmpeg.AddToTranscodeQueue(&video)
 	}
 
 	return &video

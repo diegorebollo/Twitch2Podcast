@@ -19,8 +19,7 @@ func main() {
 	dbCon := dbmanager.ConnectDb()
 
 	go jobs.UpdateVods(dbCon)
-
-	// ffmpeg.SaveMp3()
+	go jobs.EnableTranscoding()
 
 	staticHandler := http.StripPrefix("/static/", http.FileServer(http.Dir("static/")))
 
