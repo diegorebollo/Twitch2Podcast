@@ -31,11 +31,7 @@ func removeElement(array []*models.Video, r *models.Video) []*models.Video {
 
 func transcodeComplete(vod *models.Video) {
 	log.Printf("%d.mp3 saved", vod.ID)
-	transcodeQueue = removeElement(transcodeQueue, vod)
 	currentJobs = removeElement(currentJobs, vod)
-
-	fmt.Println(len(transcodeQueue), len(currentJobs))
-
 }
 
 func RunTranscodeQueue() {
@@ -46,7 +42,7 @@ func RunTranscodeQueue() {
 
 	for len(transcodeQueue) >= 1 {
 
-		fmt.Println("TOTAL: ", len(transcodeQueue))
+		fmt.Println("Current num of jobs:", len(currentJobs))
 
 		var numJobs int
 
@@ -56,15 +52,14 @@ func RunTranscodeQueue() {
 			numJobs = MaxJobs - len(currentJobs)
 		}
 
-		fmt.Println(numJobs)
-
 		for i := range numJobs {
 			vod := transcodeQueue[i]
 			currentJobs = append(currentJobs, vod)
+			transcodeQueue = removeElement(transcodeQueue, vod)
 			saveMp3(vod)
 		}
 
-		time.Sleep(1 * time.Second)
+		time.Sleep(5 * time.Second)
 
 	}
 
