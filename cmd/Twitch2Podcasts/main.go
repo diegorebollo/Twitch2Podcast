@@ -14,12 +14,12 @@ import (
 func main() {
 	fmt.Println("App Running")
 
-	dbmanager.InitDb(dbmanager.ConnectDb())
+	dbmanager.InitDb()
+	usersDbCon := dbmanager.UsersDb()
+	serverDbCon := dbmanager.ServerDb()
 
-	dbCon := dbmanager.ConnectDb()
-
-	go jobs.UpdateVods(dbCon)
-	go jobs.EnableTranscoding()
+	go jobs.UpdateVods(usersDbCon)
+	go jobs.EnableTranscoding(serverDbCon)
 
 	staticHandler := http.StripPrefix("/static/", http.FileServer(http.Dir("static/")))
 
@@ -50,7 +50,7 @@ func main() {
 		var search models.Search
 
 		if len(channel) > 1 && len(channel) <= 25 {
-			search = dbmanager.SearchChannel(channel, dbCon)
+			search = dbmanager.SearchChannel(channel, usersDbCon)
 		}
 
 		if search.Channel == nil {
@@ -78,14 +78,14 @@ func main() {
 		var channelId *int
 
 		if len(channel) > 1 && len(channel) <= 25 {
-			channelId = dbmanager.GetChannelId(channel, dbCon)
+			channelId = dbmanager.GetChannelId(channel, usersDbCon)
 
 			if channelId == nil {
 				http.Redirect(w, req, "/", http.StatusMovedPermanently)
 				return
 			}
 
-			rss := dbmanager.GetRss(channelId, dbCon)
+			rss := dbmanager.GetRss(channelId, usersDbCon)
 			if rss == nil {
 				http.Redirect(w, req, "/", http.StatusMovedPermanently)
 				return

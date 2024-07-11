@@ -1,21 +1,14 @@
 package ffmpeg
 
 import (
+	"database/sql"
+	"drebollo/twitchtopodcast/internal/dbmanager"
 	"drebollo/twitchtopodcast/internal/models"
 	"fmt"
 	"log"
 	"os/exec"
 	"time"
 )
-
-var transcodeQueue []*models.Video
-var currentJobs []*models.Video
-
-var IsTranscodeQueueRunning = false
-
-func AddToTranscodeQueue(vod *models.Video) {
-	transcodeQueue = append(transcodeQueue, vod)
-}
 
 func removeElement(array []*models.Video, r *models.Video) []*models.Video {
 
@@ -29,45 +22,48 @@ func removeElement(array []*models.Video, r *models.Video) []*models.Video {
 	return newArray
 }
 
-func transcodeComplete(vod *models.Video) {
-	log.Printf("%d.mp3 saved", vod.ID)
-	currentJobs = removeElement(currentJobs, vod)
+func transcodeComplete(vod *models.Video, db *sql.DB) {
+	fmt.Println(vod.ID, ".mp3 Saved")
+	dbmanager.RemoveFromJobsQueue(vod, db)
+
 }
 
-func RunTranscodeQueue() {
+func RunTranscodeQueue(db *sql.DB) {
 
 	fmt.Println("transcode queue")
-	IsTranscodeQueueRunning = true
 	const MaxJobs = 4
 
-	for len(transcodeQueue) >= 1 {
+	for {
 
-		fmt.Println("Current num of jobs:", len(currentJobs))
+		jobsToDo := dbmanager.GetTranscodeQueue(db).Video
 
-		var numJobs int
-
-		if len(transcodeQueue) < MaxJobs-len(currentJobs) {
-			numJobs = len(transcodeQueue)
-		} else {
-			numJobs = MaxJobs - len(currentJobs)
+		if len(jobsToDo) < 1 {
+			break
 		}
 
-		for i := range numJobs {
-			vod := transcodeQueue[i]
-			currentJobs = append(currentJobs, vod)
-			transcodeQueue = removeElement(transcodeQueue, vod)
-			saveMp3(vod)
+		currentJobs := dbmanager.GetJobsQueue(db).Video
+
+		numOfJobsToDo := MaxJobs - len(currentJobs)
+
+		if len(jobsToDo) < MaxJobs-len(currentJobs) {
+			numOfJobsToDo = len(jobsToDo)
 		}
 
-		time.Sleep(5 * time.Second)
+		fmt.Println(numOfJobsToDo)
 
+		for i := range numOfJobsToDo {
+			vod := jobsToDo[i]
+			dbmanager.InsertToJobsQueue(vod, db)
+			saveMp3(vod, db)
+			dbmanager.RemoveFromTranscodeQueue(vod, db)
+		}
+
+		time.Sleep(2 * time.Second)
 	}
-
-	IsTranscodeQueueRunning = false
 
 }
 
-func saveMp3(vod *models.Video) {
+func saveMp3(vod *models.Video, db *sql.DB) {
 
 	log.Printf("Transcoding VOD '%d'", vod.ID)
 
@@ -81,6 +77,6 @@ func saveMp3(vod *models.Video) {
 
 	go func() {
 		cmd.Wait()
-		transcodeComplete(vod)
+		transcodeComplete(vod, db)
 	}()
 }

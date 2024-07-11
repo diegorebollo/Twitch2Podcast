@@ -2,13 +2,13 @@ package dbmanager
 
 import (
 	"database/sql"
-	"drebollo/twitchtopodcast/internal/ffmpeg"
 	"drebollo/twitchtopodcast/internal/models"
 	"drebollo/twitchtopodcast/internal/rss"
 	twichapi "drebollo/twitchtopodcast/internal/twitchapi"
 	"encoding/json"
 	"fmt"
 	"log"
+	"os"
 	"strconv"
 	"strings"
 	"sync"
@@ -18,8 +18,8 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 )
 
-func ConnectDb() *sql.DB {
-	db, err := sql.Open("sqlite3", "file:db.sqlite?temp_store=memory&_journal_mode=WAL&_synchronous=normal&_mmap_size=30000000000&_busy_timeout=30000")
+func UsersDb() *sql.DB {
+	db, err := sql.Open("sqlite3", "file:db/users.sqlite?temp_store=memory&_journal_mode=WAL&_synchronous=normal&_mmap_size=30000000000&_busy_timeout=30000")
 
 	if err != nil {
 		log.Fatal(err)
@@ -31,7 +31,22 @@ func ConnectDb() *sql.DB {
 	return db
 }
 
-func InitDb(db *sql.DB) {
+func ServerDb() *sql.DB {
+	db, err := sql.Open("sqlite3", "file:db/server.sqlite?temp_store=memory&_journal_mode=WAL&_synchronous=normal&_mmap_size=30000000000&_busy_timeout=30000")
+
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	if err = db.Ping(); err != nil {
+		log.Fatal(err)
+	}
+	return db
+}
+
+func initUsersDb() {
+
+	db := UsersDb()
 
 	defer db.Close()
 
@@ -62,6 +77,7 @@ func InitDb(db *sql.DB) {
 		audioURL TEXT,
 		previewThumbnailURL TEXT,
 		isPublic BOOL, 
+		isTranscoded BOOL,
 		FOREIGN KEY(channelId) REFERENCES channel(id)
 	)`
 
@@ -96,6 +112,54 @@ func InitDb(db *sql.DB) {
 	if err != nil {
 		log.Fatal(err)
 	}
+
+}
+
+func initServerDb() {
+
+	db := ServerDb()
+	defer db.Close()
+
+	query := `CREATE TABLE IF NOT EXISTS transcode_queue (
+		videoId INTEGER PRIMARY KEY,
+		channelId INTEGER,	
+		video TEXT		
+	)`
+
+	_, err := db.Exec(query)
+
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	query = `CREATE TABLE IF NOT EXISTS job_queue (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		videoId INTEGER,
+		channelId INTEGER,	
+		video TEXT		
+	)`
+
+	_, err = db.Exec(query)
+
+	if err != nil {
+		log.Fatal(err)
+	}
+
+}
+
+func InitDb() {
+
+	folderPath := "db"
+
+	if _, err := os.Stat(folderPath); os.IsNotExist(err) {
+		err := os.MkdirAll(folderPath, os.ModePerm)
+		if err != nil {
+			log.Fatal(err)
+		}
+	}
+
+	initUsersDb()
+	initServerDb()
 
 }
 
@@ -269,12 +333,14 @@ func insertVod(channelId int, vod models.ApiEdges, db *sql.DB, wg *sync.WaitGrou
 		isPublic = true
 	}
 
+	isTranscoded := false
+
 	var video models.Video
 
-	query := `INSERT INTO vod (id,channelId,title,description,language,createdAt,lengthSeconds,broadcastType, audioURL, previewThumbnailURL, isPublic)
-	VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING *`
+	query := `INSERT INTO vod (id,channelId,title,description,language,createdAt,lengthSeconds,broadcastType, audioURL, previewThumbnailURL, isPublic, isTranscoded)
+	VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12) RETURNING *`
 
-	err = db.QueryRow(query, vodId, channelId, vod.Node.Title, vod.Node.Description, vod.Node.Language, time.Time.String(vod.Node.CreatedAt), vod.Node.LengthSeconds, vod.Node.BroadcastType, audioUrl, vod.Node.PreviewThumbnailURL, isPublic).Scan(&video.ID, &video.ChannelId, &video.Title, &video.Description, &video.Language, &video.CreatedAt, &video.LengthSeconds, &video.BroadcastType, &video.AudioURL, &video.PreviewThumbnailURL, &video.IsPublic)
+	err = db.QueryRow(query, vodId, channelId, vod.Node.Title, vod.Node.Description, vod.Node.Language, time.Time.String(vod.Node.CreatedAt), vod.Node.LengthSeconds, vod.Node.BroadcastType, audioUrl, vod.Node.PreviewThumbnailURL, isPublic, isTranscoded).Scan(&video.ID, &video.ChannelId, &video.Title, &video.Description, &video.Language, &video.CreatedAt, &video.LengthSeconds, &video.BroadcastType, &video.AudioURL, &video.PreviewThumbnailURL, &video.IsPublic, &video.IsTranscoded)
 
 	if err != nil {
 		log.Fatal(err)
@@ -283,10 +349,22 @@ func insertVod(channelId int, vod models.ApiEdges, db *sql.DB, wg *sync.WaitGrou
 
 	if video.IsPublic {
 		insertEpisode(channelId, video, db)
-		ffmpeg.AddToTranscodeQueue(&video)
+		insertToTranscodeQueue(&video, ServerDb())
 	}
 
 	return &video
+}
+
+func SetVodTranscodedTrue(vod *models.Video, db *sql.DB) bool {
+
+	_, err := db.Exec(`UPDATE vod SET isTranscoded = $1 WHERE id = $2`, true, vod.ID)
+
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	return true
+
 }
 
 func vodExist(vodId int, db *sql.DB) bool {
@@ -335,7 +413,7 @@ func getAllVods(channelId int, db *sql.DB) []models.Video {
 
 	for rows.Next() {
 		var video models.Video
-		err := rows.Scan(&video.ID, &video.ChannelId, &video.Title, &video.Description, &video.Language, &video.CreatedAt, &video.LengthSeconds, &video.BroadcastType, &video.AudioURL, &video.PreviewThumbnailURL, &video.IsPublic)
+		err := rows.Scan(&video.ID, &video.ChannelId, &video.Title, &video.Description, &video.Language, &video.CreatedAt, &video.LengthSeconds, &video.BroadcastType, &video.AudioURL, &video.PreviewThumbnailURL, &video.IsPublic, &video.IsTranscoded)
 
 		if err != nil {
 			log.Fatal(err)
@@ -668,4 +746,166 @@ func UpdateAllVods(channelId int, db *sql.DB) {
 	if needUpdate {
 		updateRss(channelId, db)
 	}
+}
+
+func insertToTranscodeQueue(vod *models.Video, db *sql.DB) {
+
+	data, err := json.Marshal(vod)
+
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	query := `INSERT INTO transcode_queue (channelId, videoId, video)
+	VALUES (?, ?, ?)`
+
+	result, err := db.Exec(query, vod.ChannelId, vod.ID, string(data))
+
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	rows, err := result.RowsAffected()
+	if err != nil {
+		log.Fatal(err)
+	}
+	if rows != 1 {
+		log.Fatalf("expected to affect 1 row, affected %d", rows)
+	}
+
+}
+
+func GetTranscodeQueue(db *sql.DB) models.TranscodeQueue {
+
+	rows, err := db.Query("SELECT * FROM transcode_queue")
+
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	defer rows.Close()
+
+	var transcodeQueue models.TranscodeQueue
+
+	for rows.Next() {
+		var vodDb models.TranscodeQueueDb
+		err := rows.Scan(&vodDb.VideoId, &vodDb.ChannelId, &vodDb.Video)
+
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		var vod models.Video
+
+		err = json.Unmarshal([]byte(vodDb.Video), &vod)
+
+		if err != nil {
+			fmt.Println(err)
+		}
+
+		transcodeQueue.Video = append(transcodeQueue.Video, &vod)
+	}
+	return transcodeQueue
+
+}
+
+func RemoveFromTranscodeQueue(vod *models.Video, db *sql.DB) {
+
+	query := `DELETE FROM transcode_queue WHERE	videoId = ?`
+
+	result, err := db.Exec(query, vod.ID)
+
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	rows, err := result.RowsAffected()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	if rows != 1 {
+		log.Fatalf("expected to affect 1 row, affected %d", rows)
+	}
+
+}
+
+func InsertToJobsQueue(vod *models.Video, db *sql.DB) {
+
+	data, err := json.Marshal(vod)
+
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	query := `INSERT INTO job_queue (channelId, videoId, video)
+	VALUES (?, ?, ?)`
+
+	result, err := db.Exec(query, vod.ChannelId, vod.ID, string(data))
+
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	rows, err := result.RowsAffected()
+	if err != nil {
+		log.Fatal(err)
+	}
+	if rows != 1 {
+		log.Fatalf("expected to affect 1 row, affected %d", rows)
+	}
+
+}
+
+func GetJobsQueue(db *sql.DB) models.TranscodeQueue {
+
+	rows, err := db.Query("SELECT * FROM job_queue ORDER BY id ASC")
+
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	var transcodeQueue models.TranscodeQueue
+
+	for rows.Next() {
+		var vodDb models.TranscodeQueueDb
+		err := rows.Scan(&vodDb.Id, &vodDb.VideoId, &vodDb.ChannelId, &vodDb.Video)
+
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		var vod models.Video
+
+		err = json.Unmarshal([]byte(vodDb.Video), &vod)
+
+		if err != nil {
+			fmt.Println(err)
+		}
+
+		transcodeQueue.Video = append(transcodeQueue.Video, &vod)
+	}
+	return transcodeQueue
+
+}
+
+func RemoveFromJobsQueue(vod *models.Video, db *sql.DB) {
+
+	query := `DELETE FROM job_queue WHERE videoId = ?`
+
+	result, err := db.Exec(query, vod.ID)
+
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	rows, err := result.RowsAffected()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	if rows != 1 {
+		log.Fatalf("expected to affect 1 row, affected %d", rows)
+	}
+
 }

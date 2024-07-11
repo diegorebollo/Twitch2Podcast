@@ -30,6 +30,7 @@ type Video struct {
 	AudioURL            *string
 	PreviewThumbnailURL string
 	IsPublic            bool
+	IsTranscoded        bool
 }
 
 type Rss struct {
@@ -44,6 +45,17 @@ type Episode struct {
 	VideoId   int
 	Language  string
 	Data      string
+}
+
+type TranscodeQueueDb struct {
+	Id        int
+	VideoId   int
+	ChannelId int
+	Video     string
+}
+
+type TranscodeQueue struct {
+	Video []*Video
 }
 
 type ApiVideos struct {
