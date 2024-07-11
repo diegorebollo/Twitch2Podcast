@@ -19,7 +19,7 @@ func main() {
 	serverDbCon := dbmanager.ServerDb()
 
 	go jobs.UpdateVods(usersDbCon)
-	go jobs.EnableTranscoding(serverDbCon)
+	go jobs.EnableTranscoding(serverDbCon, usersDbCon)
 
 	staticHandler := http.StripPrefix("/static/", http.FileServer(http.Dir("static/")))
 

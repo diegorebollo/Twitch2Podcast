@@ -51,6 +51,7 @@ type TranscodeQueueDb struct {
 	Id        int
 	VideoId   int
 	ChannelId int
+	CreatedAt string
 	Video     string
 }
 

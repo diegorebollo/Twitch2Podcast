@@ -6,42 +6,31 @@ import (
 	"drebollo/twitchtopodcast/internal/models"
 	"fmt"
 	"log"
+	"os"
 	"os/exec"
 	"time"
 )
 
-func removeElement(array []*models.Video, r *models.Video) []*models.Video {
-
-	var newArray []*models.Video
-
-	for _, e := range array {
-		if e != r {
-			newArray = append(newArray, e)
-		}
-	}
-	return newArray
-}
-
-func transcodeComplete(vod *models.Video, db *sql.DB) {
-	fmt.Println(vod.ID, ".mp3 Saved")
-	dbmanager.RemoveFromJobsQueue(vod, db)
+func transcodeComplete(vod *models.Video, serverDbCon *sql.DB, usersDbCon *sql.DB) {
+	log.Printf("'%d'.mp3 Saved", vod.ID)
+	dbmanager.RemoveFromJobsQueue(vod, serverDbCon)
+	dbmanager.SetVodTranscodedTrue(vod, usersDbCon)
 
 }
 
-func RunTranscodeQueue(db *sql.DB) {
-
-	fmt.Println("transcode queue")
+func RunTranscodeQueue(serverDbCon *sql.DB, usersDbCon *sql.DB) {
 	const MaxJobs = 4
 
-	for {
+	fmt.Println("Running Transcode Queue")
 
-		jobsToDo := dbmanager.GetTranscodeQueue(db).Video
+	for {
+		jobsToDo := dbmanager.GetTranscodeQueue(serverDbCon).Video
 
 		if len(jobsToDo) < 1 {
 			break
 		}
 
-		currentJobs := dbmanager.GetJobsQueue(db).Video
+		currentJobs := dbmanager.GetJobsQueue(serverDbCon).Video
 
 		numOfJobsToDo := MaxJobs - len(currentJobs)
 
@@ -49,27 +38,38 @@ func RunTranscodeQueue(db *sql.DB) {
 			numOfJobsToDo = len(jobsToDo)
 		}
 
-		fmt.Println(numOfJobsToDo)
-
 		for i := range numOfJobsToDo {
 			vod := jobsToDo[i]
-			dbmanager.InsertToJobsQueue(vod, db)
-			saveMp3(vod, db)
-			dbmanager.RemoveFromTranscodeQueue(vod, db)
+			dbmanager.InsertToJobsQueue(vod, serverDbCon)
+			saveMp3(vod, serverDbCon, usersDbCon)
+			dbmanager.RemoveFromTranscodeQueue(vod, serverDbCon)
 		}
 
-		time.Sleep(2 * time.Second)
+		time.Sleep(5 * time.Second)
 	}
 
 }
 
-func saveMp3(vod *models.Video, db *sql.DB) {
+func saveMp3(vod *models.Video, serverDbCon *sql.DB, usersDbCon *sql.DB) {
+
+	userPath := fmt.Sprintf("audios/%d", vod.ChannelId)
+
+	if _, err := os.Stat(userPath); os.IsNotExist(err) {
+		err := os.MkdirAll(userPath, os.ModePerm)
+		if err != nil {
+			log.Fatal(err)
+		}
+	}
+
+	filePath := fmt.Sprintf("%s/%d.mp3", userPath, vod.ID)
+
+	if err := os.Remove(filePath); err != nil && !os.IsNotExist(err) {
+		fmt.Println("Error al eliminar el archivo:", err)
+	}
 
 	log.Printf("Transcoding VOD '%d'", vod.ID)
 
-	filename := fmt.Sprintf("%d.mp3", vod.ID)
-
-	cmd := exec.Command("ffmpeg", "-i", *vod.AudioURL, "-codec:a", "libmp3lame", "-qscale:a", "5", filename)
+	cmd := exec.Command("ffmpeg", "-i", *vod.AudioURL, "-codec:a", "libmp3lame", "-qscale:a", "5", filePath)
 	err := cmd.Start()
 	if err != nil {
 		panic(err)
@@ -77,6 +77,6 @@ func saveMp3(vod *models.Video, db *sql.DB) {
 
 	go func() {
 		cmd.Wait()
-		transcodeComplete(vod, db)
+		transcodeComplete(vod, serverDbCon, usersDbCon)
 	}()
 }

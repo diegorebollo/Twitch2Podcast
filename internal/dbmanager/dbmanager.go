@@ -122,7 +122,8 @@ func initServerDb() {
 
 	query := `CREATE TABLE IF NOT EXISTS transcode_queue (
 		videoId INTEGER PRIMARY KEY,
-		channelId INTEGER,	
+		channelId INTEGER,
+		createdAt TEXT,
 		video TEXT		
 	)`
 
@@ -349,22 +350,19 @@ func insertVod(channelId int, vod models.ApiEdges, db *sql.DB, wg *sync.WaitGrou
 
 	if video.IsPublic {
 		insertEpisode(channelId, video, db)
-		insertToTranscodeQueue(&video, ServerDb())
+		InsertToTranscodeQueue(&video, ServerDb())
 	}
 
 	return &video
 }
 
-func SetVodTranscodedTrue(vod *models.Video, db *sql.DB) bool {
+func SetVodTranscodedTrue(vod *models.Video, db *sql.DB) {
 
 	_, err := db.Exec(`UPDATE vod SET isTranscoded = $1 WHERE id = $2`, true, vod.ID)
 
 	if err != nil {
 		log.Fatal(err)
 	}
-
-	return true
-
 }
 
 func vodExist(vodId int, db *sql.DB) bool {
@@ -618,6 +616,12 @@ func removeEpisode(channelId int, vodId int, db *sql.DB) {
 		log.Fatalf("expected to affect 1 row, affected %d", rows)
 	}
 
+	filePath := fmt.Sprintf("audios/%d/%d.mp3", channelId, vodId)
+
+	if err := os.Remove(filePath); err != nil && !os.IsNotExist(err) {
+		fmt.Println("Error al eliminar el archivo:", err)
+	}
+
 	updateRss(channelId, db)
 
 }
@@ -748,7 +752,7 @@ func UpdateAllVods(channelId int, db *sql.DB) {
 	}
 }
 
-func insertToTranscodeQueue(vod *models.Video, db *sql.DB) {
+func InsertToTranscodeQueue(vod *models.Video, db *sql.DB) {
 
 	data, err := json.Marshal(vod)
 
@@ -756,10 +760,10 @@ func insertToTranscodeQueue(vod *models.Video, db *sql.DB) {
 		log.Fatal(err)
 	}
 
-	query := `INSERT INTO transcode_queue (channelId, videoId, video)
-	VALUES (?, ?, ?)`
+	query := `INSERT INTO transcode_queue (channelId, videoId, createdAt, video)
+	VALUES (?, ?, ?, ?)`
 
-	result, err := db.Exec(query, vod.ChannelId, vod.ID, string(data))
+	result, err := db.Exec(query, vod.ChannelId, vod.ID, vod.CreatedAt, string(data))
 
 	if err != nil {
 		log.Fatal(err)
@@ -777,7 +781,7 @@ func insertToTranscodeQueue(vod *models.Video, db *sql.DB) {
 
 func GetTranscodeQueue(db *sql.DB) models.TranscodeQueue {
 
-	rows, err := db.Query("SELECT * FROM transcode_queue")
+	rows, err := db.Query("SELECT * FROM transcode_queue ORDER BY createdAt DESC")
 
 	if err != nil {
 		log.Fatal(err)
@@ -789,7 +793,7 @@ func GetTranscodeQueue(db *sql.DB) models.TranscodeQueue {
 
 	for rows.Next() {
 		var vodDb models.TranscodeQueueDb
-		err := rows.Scan(&vodDb.VideoId, &vodDb.ChannelId, &vodDb.Video)
+		err := rows.Scan(&vodDb.VideoId, &vodDb.ChannelId, &vodDb.CreatedAt, &vodDb.Video)
 
 		if err != nil {
 			log.Fatal(err)
@@ -906,6 +910,18 @@ func RemoveFromJobsQueue(vod *models.Video, db *sql.DB) {
 
 	if rows != 1 {
 		log.Fatalf("expected to affect 1 row, affected %d", rows)
+	}
+
+}
+
+func RemoveAllFromJobsQueue(db *sql.DB) {
+
+	query := `DELETE FROM job_queue`
+
+	_, err := db.Exec(query)
+
+	if err != nil {
+		log.Fatal(err)
 	}
 
 }

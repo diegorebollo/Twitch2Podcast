@@ -4,7 +4,6 @@ import (
 	"database/sql"
 	"drebollo/twitchtopodcast/internal/dbmanager"
 	"drebollo/twitchtopodcast/internal/ffmpeg"
-	"fmt"
 	"log"
 	"time"
 )
@@ -27,18 +26,26 @@ func UpdateVods(db *sql.DB) {
 
 }
 
-func EnableTranscoding(db *sql.DB) {
+func EnableTranscoding(serverDbCon *sql.DB, usersDbCon *sql.DB) {
 
 	log.Print("Transcoding enable")
 
+	jobsQueue := dbmanager.GetJobsQueue(serverDbCon).Video
+	if len(jobsQueue) > 0 {
+
+		for _, job := range jobsQueue {
+			dbmanager.InsertToTranscodeQueue(job, serverDbCon)
+		}
+
+		log.Println("Removing Jobs from Queue")
+		dbmanager.RemoveAllFromJobsQueue(serverDbCon)
+	}
+
 	for {
 		time.Sleep(5 * time.Second)
-		transcodeQueue := dbmanager.GetTranscodeQueue(db)
+		transcodeQueue := dbmanager.GetTranscodeQueue(serverDbCon)
 		if len(transcodeQueue.Video) >= 1 {
-			ffmpeg.RunTranscodeQueue(db)
-			transcodeQueue = dbmanager.GetTranscodeQueue(db)
-			fmt.Println("NO HAY MAS TRABAJO: ", len(transcodeQueue.Video))
-
+			ffmpeg.RunTranscodeQueue(serverDbCon, usersDbCon)
 		}
 
 	}
