@@ -30,13 +30,15 @@
 }
 
 body {
-    min-height: 100dvh;
+    min-height: 100dvb;
+    margin-block: 0;
     font-family: 'ABeeZee', sans-serif;
     color: rgb(197, 207, 216);
     background-image: radial-gradient(#1b1b3d 1.5px, transparent 1.5px);
     background-size: 16px 16px;
     background-color: #100f2c;
     display: flex;
+    flex-direction: column;
     justify-content: center;
     align-items: center;
 
@@ -74,14 +76,11 @@ p {
 
 main {
     display: flex;
-    flex-direction: column;
+    flex: 1;
     align-items: center;
     justify-content: center;
-    background-color: #22216471;
-    border-radius: 12px;
-    width: 500px;
-
 }
+
 
 h1 {
     font-size: 3.2rem;
@@ -91,6 +90,34 @@ h1 {
 
 h1 span {
     font-size: 1.4em;
+}
+
+
+footer{    
+    color:  #a67ce481;
+    text-align: center;
+    padding-bottom: 16px;
+
+}
+
+footer a {
+    transition: color .3s ease-in-out;
+}
+
+footer a:hover{
+    color:  #a67ce4c4;
+
+
+}
+
+.box{
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background-color: #22216471;
+    border-radius: 12px;
+    width: 500px;
 }
 
 .subtitle {
@@ -248,6 +275,7 @@ h1 span {
     margin-top: 36px;
     margin-bottom: 0;
 }
+
 
 
 /* https://cssloaders.github.io/ */
