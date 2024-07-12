@@ -25,5 +25,8 @@ go.work.sum
 .env
 
 db.sqlite*
+db/
 
 *.mp3
+audios/
+
