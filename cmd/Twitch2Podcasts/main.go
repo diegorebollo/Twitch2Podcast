@@ -7,12 +7,20 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"os"
 	"strings"
 	"text/template"
+
+	"github.com/joho/godotenv"
 )
 
 func main() {
-	fmt.Println("App Running")
+	log.Println("App Running")
+
+	err := godotenv.Load()
+	if err != nil {
+		log.Fatal("Error loading .env file")
+	}
 
 	dbmanager.InitDb()
 	usersDbCon := dbmanager.UsersDb()
@@ -22,10 +30,12 @@ func main() {
 	go jobs.EnableTranscoding(serverDbCon, usersDbCon)
 
 	staticHandler := http.StripPrefix("/static/", http.FileServer(http.Dir("static/")))
+	audioHandler := http.StripPrefix("/audios/", http.FileServer(http.Dir("audios/")))
 
 	indexHandler := func(w http.ResponseWriter, req *http.Request) {
 		log.Print("index ", req.UserAgent())
 		tmpl := template.Must(template.ParseFiles("templates/index.html"))
+
 		tmpl.Execute(w, nil)
 	}
 
@@ -36,6 +46,7 @@ func main() {
 		}
 
 		channel := strings.ToLower(req.PostFormValue("channel"))
+		channel = strings.TrimSpace(channel)
 
 		if strings.Contains(channel, "twitch.tv/") {
 			split := strings.Split(channel, "/")
@@ -96,9 +107,11 @@ func main() {
 
 	http.HandleFunc("/", indexHandler)
 	http.Handle("/static/{file}", staticHandler)
+	http.Handle("/audios/{channelId}/{file}", audioHandler)
 	http.HandleFunc("/channel/", userHandler)
 	http.HandleFunc("/feed/{channel}", feedHandler)
 
-	fmt.Println("WebServer Running")
-	log.Fatal(http.ListenAndServe(":8080", nil))
+	log.Println("WebServer Running")
+	log.Fatal(http.ListenAndServe(fmt.Sprintf(":%s", os.Getenv("PORT")), nil))
+
 }

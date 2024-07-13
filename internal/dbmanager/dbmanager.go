@@ -349,7 +349,7 @@ func insertVod(channelId int, vod models.ApiEdges, db *sql.DB, wg *sync.WaitGrou
 	}
 
 	if video.IsPublic {
-		insertEpisode(channelId, video, db)
+		insertEpisode(video, db)
 		InsertToTranscodeQueue(&video, ServerDb())
 	}
 
@@ -358,11 +358,21 @@ func insertVod(channelId int, vod models.ApiEdges, db *sql.DB, wg *sync.WaitGrou
 
 func SetVodTranscodedTrue(vod *models.Video, db *sql.DB) {
 
-	_, err := db.Exec(`UPDATE vod SET isTranscoded = $1 WHERE id = $2`, true, vod.ID)
+	var updatedVod models.Video
+
+	err := db.QueryRow(`UPDATE vod SET isTranscoded = $1 WHERE id = $2 RETURNING *`, true, vod.ID).Scan(&updatedVod.ID, &updatedVod.ChannelId, &updatedVod.Title, &updatedVod.Description, &updatedVod.Language, &updatedVod.CreatedAt, &updatedVod.LengthSeconds, &updatedVod.BroadcastType, &updatedVod.AudioURL, &updatedVod.PreviewThumbnailURL, &updatedVod.IsPublic, &updatedVod.IsTranscoded)
+
+	if err == sql.ErrNoRows {
+		log.Fatal("ww", err)
+
+	}
 
 	if err != nil {
 		log.Fatal(err)
 	}
+
+	updateEpisode(&updatedVod, db)
+	updateRss(vod.ChannelId, db)
 }
 
 func vodExist(vodId int, db *sql.DB) bool {
@@ -381,10 +391,10 @@ func vodExist(vodId int, db *sql.DB) bool {
 	return true
 }
 
-func getVod(vodId int, db *sql.DB) *models.Video {
+func GetVod(vodId int, db *sql.DB) *models.Video {
 
 	var video models.Video
-	err := db.QueryRow("SELECT * FROM vod WHERE id = $1", vodId).Scan(&video.ID, &video.ChannelId, &video.Title, &video.Description, &video.Language, &video.CreatedAt, &video.LengthSeconds, &video.BroadcastType, &video.AudioURL, &video.PreviewThumbnailURL, &video.IsPublic)
+	err := db.QueryRow("SELECT * FROM vod WHERE id = $1", vodId).Scan(&video.ID, &video.ChannelId, &video.Title, &video.Description, &video.Language, &video.CreatedAt, &video.LengthSeconds, &video.BroadcastType, &video.AudioURL, &video.PreviewThumbnailURL, &video.IsPublic, &video.IsTranscoded)
 
 	if err == sql.ErrNoRows {
 		return nil
@@ -515,10 +525,9 @@ func insertRss(channelId int, db *sql.DB) {
 
 }
 
-func insertEpisode(channelId int, vod models.Video, db *sql.DB) {
+func insertEpisode(vod models.Video, db *sql.DB) {
 
 	episode := rss.GenerateEpisode(vod)
-
 	jsonData, err := json.Marshal(episode)
 
 	if err != nil {
@@ -529,7 +538,7 @@ func insertEpisode(channelId int, vod models.Video, db *sql.DB) {
 	query := `INSERT INTO episode (channelId, videoId, language, data)
 	VALUES (?, ?, ?, ?)`
 
-	result, err := db.Exec(query, channelId, vod.ID, vod.Language, string(jsonData))
+	result, err := db.Exec(query, vod.ChannelId, vod.ID, vod.Language, string(jsonData))
 
 	if err != nil {
 		log.Fatal(err)
@@ -542,6 +551,26 @@ func insertEpisode(channelId int, vod models.Video, db *sql.DB) {
 	if rows != 1 {
 		log.Fatalf("expected to affect 1 row, affected %d", rows)
 	}
+}
+
+func updateEpisode(vod *models.Video, db *sql.DB) {
+
+	episode := rss.GenerateEpisode(*vod)
+	jsonData, err := json.Marshal(episode)
+
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+
+	_, err = db.Exec(`UPDATE episode SET data = $1 WHERE videoId = $2`, jsonData, vod.ID)
+	if err == sql.ErrNoRows {
+		log.Fatal(err)
+	}
+	if err != nil {
+		log.Fatal(err)
+	}
+
 }
 
 func updateRss(channelId int, db *sql.DB) {
@@ -616,11 +645,11 @@ func removeEpisode(channelId int, vodId int, db *sql.DB) {
 		log.Fatalf("expected to affect 1 row, affected %d", rows)
 	}
 
-	filePath := fmt.Sprintf("audios/%d/%d.mp3", channelId, vodId)
+	// filePath := fmt.Sprintf("audios/%d/%d.mp3", channelId, vodId)
 
-	if err := os.Remove(filePath); err != nil && !os.IsNotExist(err) {
-		fmt.Println("Error al eliminar el archivo:", err)
-	}
+	// if err := os.Remove(filePath); err != nil && !os.IsNotExist(err) {
+	// 	fmt.Println("Error al eliminar el archivo:", err)
+	// }
 
 	updateRss(channelId, db)
 

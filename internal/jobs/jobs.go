@@ -5,15 +5,26 @@ import (
 	"drebollo/twitchtopodcast/internal/dbmanager"
 	"drebollo/twitchtopodcast/internal/ffmpeg"
 	"log"
+	"os"
+	"strconv"
 	"time"
 )
 
 func UpdateVods(db *sql.DB) {
 
+	updateIntervalEnv := os.Getenv("UPDATE_INTERVAL")
+	updateIntervalInt, err := strconv.Atoi(updateIntervalEnv)
+
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	updateInterval := time.Duration(updateIntervalInt) * time.Minute
+
 	log.Print("Update VODS Enable")
 
 	for {
-		time.Sleep(1 * time.Minute)
+		time.Sleep(updateInterval)
 		log.Print("Updating Vods...")
 		channels := dbmanager.GetAllChannelIds(db)
 

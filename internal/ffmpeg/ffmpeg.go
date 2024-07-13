@@ -8,6 +8,7 @@ import (
 	"log"
 	"os"
 	"os/exec"
+	"strconv"
 	"time"
 )
 
@@ -19,7 +20,12 @@ func transcodeComplete(vod *models.Video, serverDbCon *sql.DB, usersDbCon *sql.D
 }
 
 func RunTranscodeQueue(serverDbCon *sql.DB, usersDbCon *sql.DB) {
-	const MaxJobs = 4
+	maxJobsEnv := os.Getenv("MAX_TRANSCODE_JOBS")
+	MaxJobs, err := strconv.Atoi(maxJobsEnv)
+
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	fmt.Println("Running Transcode Queue")
 
