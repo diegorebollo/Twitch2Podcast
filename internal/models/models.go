@@ -6,6 +6,7 @@ import (
 
 type Search struct {
 	Channel *Channel
+	Url     *string
 }
 
 type Channel struct {

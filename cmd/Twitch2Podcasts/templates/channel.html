@@ -7,18 +7,25 @@
         </div>
     </div>
     <div class="horizontal-line"></div>
-    <div class="links">
-        <a href="/feed/{{ .Channel.Login }}" class="url">twitch2podcast.com/feed/{{ .Channel.Login }}</a>
-        <button type="button" class="copyBtn">Copy Link</button>
+    <div class="results">
+        <div class="links">        
+            <a href="https://{{ .Url }}" class="url">{{ .Url }}</a>
+            <button type="button" class="copyBtn">Copy</button>
+         </div>
+        <div class="podcasts">
+            <a href="pktc://subscribe/{{ .Url }}"><img src="static/pocketcasts.svg" alt="PocketCast"></a>        
+            <a href="overcast://x-callback-url/add?url=https://{{ .Url }}"><img src="static/overcast.svg" alt="Overcast"></a>
+            <a href="podcast://{{ .Url }}"><img src="static/itunes.svg" alt="Apple Podcast"></a>
+        </div>
     </div>
-
 </div>
 
 <script>
     var button = document.querySelector(".copyBtn");
-    var url = document.querySelector(".url").textContent;
+    var url = document.querySelector(".url").href;
+    
 
-    button.addEventListener("click", () => writeClipboardText(`https://www.${url}`));
+    button.addEventListener("click", () => writeClipboardText(url));
     async function writeClipboardText(text) {
     try {
         await navigator.clipboard.writeText(text);

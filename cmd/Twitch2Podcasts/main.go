@@ -27,7 +27,13 @@ func main() {
 	serverDbCon := dbmanager.ServerDb()
 
 	go jobs.UpdateVods(usersDbCon)
-	go jobs.EnableTranscoding(serverDbCon, usersDbCon)
+
+	enableTranscoding := os.Getenv("ENABLE_TRANSCODE")
+
+	if enableTranscoding == "true" {
+		go jobs.EnableTranscoding(serverDbCon, usersDbCon)
+
+	}
 
 	staticHandler := http.StripPrefix("/static/", http.FileServer(http.Dir("static/")))
 	audioHandler := http.StripPrefix("/audios/", http.FileServer(http.Dir("audios/")))

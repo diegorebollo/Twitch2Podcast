@@ -169,6 +169,8 @@ func SearchChannel(loginChannel string, db *sql.DB) models.Search {
 	var channel models.Channel
 	err := db.QueryRow("SELECT * FROM channel WHERE login = $1", loginChannel).Scan(&channel.Id, &channel.Login, &channel.DisplayName, &channel.Description, &channel.CreatedAt, &channel.LastSearch, &channel.ProfileImageURL)
 
+	baseUrl := os.Getenv("BASE_URL")
+
 	if err != nil {
 		if err == sql.ErrNoRows {
 			log.Printf("Channel '%s' NOT found in DB", loginChannel)
@@ -179,7 +181,8 @@ func SearchChannel(loginChannel string, db *sql.DB) models.Search {
 				return search
 			}
 			channel = insertChannel(*apiLookup.User, db)
-			search := models.Search{Channel: &channel}
+			urlFeed := fmt.Sprintf("%s/feed/%s", baseUrl, channel.Login)
+			search := models.Search{Channel: &channel, Url: &urlFeed}
 			return search
 		}
 		log.Fatal(err)
@@ -192,7 +195,9 @@ func SearchChannel(loginChannel string, db *sql.DB) models.Search {
 		log.Fatal(err)
 	}
 
-	search := models.Search{Channel: &channel}
+	urlFeed := fmt.Sprintf("%s/feed/%s", baseUrl, channel.Login)
+	search := models.Search{Channel: &channel, Url: &urlFeed}
+
 	return search
 }
 
