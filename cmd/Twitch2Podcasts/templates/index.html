@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <script src="/static/htmx.min.js"></script>
+  <link rel="stylesheet" href="/static/style.css">
+  <link rel="icon" type="image/x-icon" href="/static/favicon.ico">
+  <title>Twitch2Podcast - Turn a Twitch channel into a Podcast Feed</title>
+  <meta name="description"
+    content="Easily turn any Twitch channel into a podcast feed. Transform all public VODs into an RSS podcast feed and use it in any podcast app.">
+</head>
+
+<body>
+  <main>
+    <section class="box">
+        <a href="/"><h1>Twitch<span>2</span>Podcast</h1></a>
+        <p class="subtitle">Turn a Twitch channel into a Podcast Feed</p>
+      <form class="form" hx-post="/channel/" hx-target="#channel-result" hx-indicator="#loader">
+        <input type="text" class="input" name="channel" id="channel" autocomplete="off" minlength="1" maxlength="50"
+          placeholder="Enter Twitch Channel" required />
+        <button type="submit" class="submit" value="send">
+          Generate Feed
+        </button>
+      </form>
+      <!-- <span class="my-indicator loader" id="loader"></span> -->
+      <section id="channel-result"></section>
+    </section>
+  </main>
+  <footer>
+    <a href="https://www.drebollo.com/">drebollo.com</a> | <a href="mailto:info@twitch2podcast.com">contact</a>
+  </footer>
+</body>
+
+</html>

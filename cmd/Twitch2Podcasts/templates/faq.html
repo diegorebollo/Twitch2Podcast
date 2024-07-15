@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <script src="/static/htmx.min.js"></script>
+  <link rel="stylesheet" href="/static/style.css">
+  <link rel="icon" type="image/x-icon" href="/static/favicon.ico">
+  <title>Twitch2Podcast - Turn a Twitch channel into a Podcast Feed</title>
+  <meta name="description"
+    content="Easily turn any Twitch channel into a podcast feed. Transform all public VODs into an RSS podcast feed and use it in any podcast app.">
+</head>
+
+<body>
+  <main>
+    <section class="box">
+        <a href="/"><h1>Twitch<span>2</span>Podcast</h1></a>
+        <p class="subtitle">Turn a Twitch channel into a Podcast Feed</p>
+        <section class="faq">
+          <p>Twitch2Podcast converts Twitch videos into an RSS podcast feed and transcodes the audio to mp3 for better compatibility with podcast apps. </p>  
+          <p>Because the transcoding time depends on the duration of the video, for a better user experience, we first use an audio source directly from Twitch and then replace it with the mp3 transcoded version. This can cause some problems depending on the podcast app you use.</p>
+          <p>Here is a list of apps that we tested and their possible drawbacks:</p>
+          <ul>
+            <li><a target="_blank" href="https://pocketcasts.com/">Pocket Cast</a></li>
+            <p>
+              Pocket Cast can play audio directly from the Twitch source but doesn't allow downloads. Users must wait for transcoding to finish. Additionally, Pocket Cast caches the podcast feed on their servers, which can cause delays in updates and playback/download issues.
+            </p>
+            <li><a target="_blank" href="https://overcast.fm/">OverCast</a></li>
+            <p>OverCast doesn't allow playback or downloads from the Twitch source. It only works once the transcoding is finished.</p>
+            <li><a target="_blank" href="https://antennapod.org/">AnttenaPod</a></li>
+            <p>AnttenaPod also doesn't allow playback or downloads from the Twitch source. It only works once the transcoding is finished.</p>
+            <li><a target="_blank" href="https://podcastaddict.com/">Podcast Addict</a></li>
+            <p>Podcast Addict can play audio directly from the Twitch source but doesn't allow downloads. Users must wait for the transcoding to finish."</p>
+          </ul>
+        </section>
+
+    </section>
+  </main>
+  <footer>
+    <a href="https://www.drebollo.com/">drebollo.com</a> | <a href="mailto:info@twitch2podcast.com">contact</a>
+  </footer>
+</body>
+
+</html>

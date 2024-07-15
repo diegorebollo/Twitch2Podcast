@@ -1,0 +1,40 @@
+<div class="channel">
+    <div class="user">
+        <img src="{{ .Channel.ProfileImageURL }}" alt="{{ .Channel.DisplayName }}`s profile picture">
+        <div class="user-description">
+            <p class="name">{{ .Channel.DisplayName }}</p>
+            <p class="description">{{ .Channel.Description }}</p>
+        </div>
+    </div>
+    <div class="horizontal-line"></div>
+    <div class="results">
+        <div class="links">        
+            <a href="https://{{ .Url }}" class="url">{{ .Url }}</a>
+            <button type="button" class="copyBtn">Copy</button>
+         </div>
+        <div class="podcasts">
+            <a href="pktc://subscribe/{{ .Url }}"><img src="static/pocketcasts.svg" alt="PocketCast"></a>        
+            <a href="overcast://x-callback-url/add?url=https://{{ .Url }}"><img src="static/overcast.svg" alt="Overcast"></a>
+            <a href="podcast://{{ .Url }}"><img src="static/itunes.svg" alt="Apple Podcast"></a>
+        </div>
+    </div>
+    <p class="msg"><a href="/faq">Need help?</a></p>
+
+</div>
+
+
+<script>
+    var button = document.querySelector(".copyBtn");
+    var url = document.querySelector(".url").href;
+    
+
+    button.addEventListener("click", () => writeClipboardText(url));
+    async function writeClipboardText(text) {
+    try {
+        await navigator.clipboard.writeText(text);
+    } catch (error) {
+        console.error(error.message);
+    }
+    }
+</script>
+      
