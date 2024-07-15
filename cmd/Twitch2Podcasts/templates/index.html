@@ -15,8 +15,8 @@
 <body>
   <main>
     <section class="box">
-      <h1>Twitch<span>2</span>Podcast</h1>
-      <p class="subtitle">Turn a Twitch channel into a Podcast Feed</p>
+        <a href="/"><h1>Twitch<span>2</span>Podcast</h1></a>
+        <p class="subtitle">Turn a Twitch channel into a Podcast Feed</p>
       <form class="form" hx-post="/channel/" hx-target="#channel-result" hx-indicator="#loader">
         <input type="text" class="input" name="channel" id="channel" autocomplete="off" minlength="1" maxlength="50"
           placeholder="Enter Twitch Channel" required />
@@ -24,9 +24,8 @@
           Generate Feed
         </button>
       </form>
-      <span class="my-indicator loader" id="loader"></span>
+      <!-- <span class="my-indicator loader" id="loader"></span> -->
       <section id="channel-result"></section>
-      <!-- <p class="msg">Twitch2Podcast is under development</p> -->
     </section>
   </main>
   <footer>

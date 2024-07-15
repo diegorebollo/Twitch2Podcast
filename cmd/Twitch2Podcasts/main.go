@@ -45,6 +45,13 @@ func main() {
 		tmpl.Execute(w, nil)
 	}
 
+	faqHandler := func(w http.ResponseWriter, req *http.Request) {
+		log.Print("faq ", req.UserAgent())
+		tmpl := template.Must(template.ParseFiles("templates/faq.html"))
+
+		tmpl.Execute(w, nil)
+	}
+
 	userHandler := func(w http.ResponseWriter, req *http.Request) {
 		if req.Method == http.MethodGet {
 			http.Redirect(w, req, "/", http.StatusMovedPermanently)
@@ -112,6 +119,7 @@ func main() {
 	}
 
 	http.HandleFunc("/", indexHandler)
+	http.HandleFunc("/faq", faqHandler)
 	http.Handle("/static/{file}", staticHandler)
 	http.Handle("/audios/{channelId}/{file}", audioHandler)
 	http.HandleFunc("/channel/", userHandler)
