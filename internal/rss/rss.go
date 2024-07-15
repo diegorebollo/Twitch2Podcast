@@ -3,6 +3,7 @@ package rss
 import (
 	"drebollo/twitchtopodcast/internal/models"
 	"fmt"
+	"os"
 	"strconv"
 	"time"
 
@@ -48,8 +49,10 @@ func GenerateEpisode(vod models.Video) *podcast.Item {
 
 		audioUrl := *vod.AudioURL
 
+		baseURL := os.Getenv("BASE_URL")
+
 		if vod.IsTranscoded {
-			audioUrl = fmt.Sprintf("https://dev.twitch2podcast.com/audios/%d/%d.mp3", vod.ChannelId, vod.ID)
+			audioUrl = fmt.Sprintf("https://%s/audios/%d/%d.mp3", baseURL, vod.ChannelId, vod.ID)
 		}
 
 		episode.AddPubDate(&pubDate)
