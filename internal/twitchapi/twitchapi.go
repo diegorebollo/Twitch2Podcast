@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"drebollo/twitchtopodcast/internal/models"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -14,7 +15,7 @@ import (
 
 var clientId = "kimne78kx3ncx6brgo4mv6wki5h1ko"
 
-func makeRequest(bodyContent string) []uint8 {
+func makeRequest(bodyContent string) ([]byte, error) {
 	url := "https://gql.twitch.tv/gql"
 	contentType := "application/json"
 	data := []byte(bodyContent)
@@ -30,6 +31,7 @@ func makeRequest(bodyContent string) []uint8 {
 	resp, err := client.Do(req)
 	if err != nil {
 		fmt.Println(err)
+		return nil, errors.New("request not vaild")
 	}
 	defer resp.Body.Close()
 
@@ -37,18 +39,21 @@ func makeRequest(bodyContent string) []uint8 {
 	if err != nil {
 		fmt.Println(err)
 	}
-
-	return body
+	return body, nil
 }
 
 func ChannelData(channel string) models.ApiData {
 
 	bodyContent := fmt.Sprintf(`{"query": "{ user(login: \"%s\") { id login displayName description createdAt profileImageURL(width: 300) }}"}`, channel)
-	resp := makeRequest(bodyContent)
+	resp, err := makeRequest(bodyContent)
+
+	if err != nil {
+		fmt.Println(resp)
+	}
 
 	var userResp models.ApiResponse
 
-	err := json.Unmarshal(resp, &userResp)
+	err = json.Unmarshal(resp, &userResp)
 
 	if err != nil {
 		fmt.Println(err)
@@ -61,13 +66,18 @@ func ChannelData(channel string) models.ApiData {
 func GetAllVodsFromChannel(channelId int) []models.ApiEdges {
 
 	bodyContent := fmt.Sprintf(`{"query": "{ user(id: \"%s\") { id videos(first: 100, type: ARCHIVE) { edges { node { id title description language createdAt lengthSeconds broadcastType previewThumbnailURL(height: 720, width: 1280) } } } }}"}`, fmt.Sprint(channelId))
-	resp := makeRequest(bodyContent)
-
-	var vodsResp models.ApiResponse
-	err := json.Unmarshal(resp, &vodsResp)
+	resp, err := makeRequest(bodyContent)
 
 	if err != nil {
 		fmt.Println(err)
+		return nil
+	}
+
+	var vodsResp models.ApiResponse
+	err = json.Unmarshal(resp, &vodsResp)
+
+	if err != nil {
+		fmt.Println("GetAllVodsFromChannel", err)
 	}
 	return vodsResp.Data.User.Videos.Edges
 }
@@ -119,10 +129,14 @@ func getPlayList(vodId int) []uint8 {
 
 func getAccessToken(vodId int) *models.ApiVideoPlaybackAccessToken {
 	bodyContent := fmt.Sprintf(`{"query": "{ videoPlaybackAccessToken(id: \"%d\", params: {platform: \"web\", playerBackend: \"mediaplayer\", playerType: \"site\"}) { signature value }}"}`, vodId)
-	resp := makeRequest(bodyContent)
+	resp, err := makeRequest(bodyContent)
+
+	if err != nil {
+		fmt.Println(err)
+	}
 
 	var accessTokenResp models.ApiResponse
-	err := json.Unmarshal(resp, &accessTokenResp)
+	err = json.Unmarshal(resp, &accessTokenResp)
 
 	if err != nil {
 		fmt.Println(err)

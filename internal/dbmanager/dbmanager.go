@@ -294,6 +294,10 @@ func saveAllVods(channelId int, db *sql.DB) {
 	numVodSave := 0
 	vods := twichapi.GetAllVodsFromChannel(channelId)
 
+	if vods == nil {
+		return
+	}
+
 	if len(vods) == 0 {
 		log.Printf("Channel ID '%d' has NO VODs", channelId)
 	}
@@ -650,11 +654,11 @@ func removeEpisode(channelId int, vodId int, db *sql.DB) {
 		log.Fatalf("expected to affect 1 row, affected %d", rows)
 	}
 
-	// filePath := fmt.Sprintf("audios/%d/%d.mp3", channelId, vodId)
+	filePath := fmt.Sprintf("audios/%d/%d.mp3", channelId, vodId)
 
-	// if err := os.Remove(filePath); err != nil && !os.IsNotExist(err) {
-	// 	fmt.Println("Error al eliminar el archivo:", err)
-	// }
+	if err := os.Remove(filePath); err != nil && !os.IsNotExist(err) {
+		fmt.Println("Error al eliminar el archivo:", err)
+	}
 
 	updateRss(channelId, db)
 
@@ -712,6 +716,10 @@ func UpdateAllVods(channelId int, db *sql.DB) {
 
 	vodsApi := twichapi.GetAllVodsFromChannel(channelId)
 	vodsDb := getAllVodsId(&channelId, db)
+
+	if vodsApi == nil {
+		return
+	}
 
 	if len(vodsApi) == 0 && len(vodsDb) == 0 {
 		return
