@@ -40,7 +40,7 @@ func main() {
 
 	indexHandler := func(w http.ResponseWriter, req *http.Request) {
 
-		if strings.Contains(req.UserAgent(), "UptimeKuma") {
+		if !strings.Contains(req.UserAgent(), "UptimeKuma") {
 			log.Print("index ", req.UserAgent())
 		}
 
