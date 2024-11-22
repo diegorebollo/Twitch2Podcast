@@ -39,7 +39,11 @@ func main() {
 	audioHandler := http.StripPrefix("/audios/", http.FileServer(http.Dir("audios/")))
 
 	indexHandler := func(w http.ResponseWriter, req *http.Request) {
-		log.Print("index ", req.UserAgent())
+
+		if strings.Contains(req.UserAgent(), "UptimeKuma") {
+			log.Print("index ", req.UserAgent())
+		}
+
 		tmpl := template.Must(template.ParseFiles("templates/index.html"))
 
 		tmpl.Execute(w, nil)
